@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"gstor/common/block"
+	"github.com/chenq7an/gstor/common/block"
 	"os"
 
 	"github.com/spf13/cobra"

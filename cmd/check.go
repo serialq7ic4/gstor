@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"gstor/common/controller"
+	"github.com/chenq7an/gstor/common/controller"
 
 	"github.com/spf13/cobra"
 )

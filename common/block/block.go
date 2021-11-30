@@ -3,7 +3,7 @@ package block
 import (
 	"bytes"
 	"errors"
-	"gstor/common/controller"
+	"github.com/chenq7an/gstor/common/controller"
 	"log"
 	"os/exec"
 )

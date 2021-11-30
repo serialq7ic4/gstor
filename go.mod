@@ -1,4 +1,4 @@
-module gstor
+module github.com/chenq7an/gstor
 
 go 1.17
 

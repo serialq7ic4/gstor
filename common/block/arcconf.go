@@ -2,7 +2,7 @@ package block
 
 import (
 	"fmt"
-	"gstor/common/controller"
+	"github.com/chenq7an/gstor/common/controller"
 	"strconv"
 	"strings"
 	"sync"
