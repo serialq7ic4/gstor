@@ -103,7 +103,7 @@ func (m *storcliCollector) Collect() []*Disk {
 	c := controller.Collect()
 	// fmt.Printf("server have %d controller\n", c.Num)
 	for i := 0; i < c.Num; i++ {
-		output := Bash(fmt.Sprintf(`%s /c%d show | egrep "SATA SSD|SATA HDD" | awk '{print "%d:"$1}'`, c.Tool, i, i))
+		output := Bash(fmt.Sprintf(`%s /c%d show | egrep "SSD|HDD" | awk '{print "%d:"$1}'`, c.Tool, i, i))
 		pdces := strings.Split(strings.Trim(output, "\n"), "\n")
 		// fmt.Println(pdces)
 		pdcesArray = append(pdcesArray, pdces...)
