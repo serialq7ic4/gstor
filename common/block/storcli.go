@@ -92,6 +92,10 @@ func storcli(id string, results chan<- *Disk, wg *sync.WaitGroup) {
 	if strings.HasPrefix(disk.Vendor, "ST") {
 		disk.Vendor = "SEAGATE"
 	}
+
+	if strings.HasPrefix(disk.Vendor, "HUS") {
+		disk.Vendor = "HGST"
+	}
 	// fmt.Printf("Device %s done\n", id)
 
 	results <- disk
