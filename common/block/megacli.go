@@ -11,7 +11,7 @@ import (
 
 type megacliCollector struct{}
 
-func megacli(id string, results chan<- *Disk, wg *sync.WaitGroup) {
+func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	var _deviceId string
 	var _wwn string
@@ -25,7 +25,7 @@ func megacli(id string, results chan<- *Disk, wg *sync.WaitGroup) {
 	eid := strings.Split(id, ":")[1]
 	sid := strings.Split(id, ":")[2]
 
-	disk := &Disk{CES: id}
+	disk := Disk{CES: id}
 	// 从阵列卡 Pdinfo 中抓取的信息
 	megacliInfo := Bash(fmt.Sprintf(`%s -Pdinfo -PhysDrv[%s:%s] -a%s | egrep "Device Id:|WWN:|Firmware state:|Media Type:|Media Error Count:|Predictive Failure Count:"`, tool, eid, sid, cid))
 
@@ -114,8 +114,8 @@ func megacli(id string, results chan<- *Disk, wg *sync.WaitGroup) {
 	results <- disk
 }
 
-func (m *megacliCollector) Collect() []*Disk {
-	s := make([]*Disk, 0)
+func (m *megacliCollector) Collect() []Disk {
+	s := make([]Disk, 0)
 	pdcesArray := make([]string, 0)
 	c := controller.Collect()
 	// fmt.Printf("server have %d controller\n", c.Num)
@@ -126,7 +126,7 @@ func (m *megacliCollector) Collect() []*Disk {
 		pdcesArray = append(pdcesArray, pdces...)
 	}
 
-	results := make(chan *Disk, len(pdcesArray))
+	results := make(chan Disk, len(pdcesArray))
 
 	var wg sync.WaitGroup
 

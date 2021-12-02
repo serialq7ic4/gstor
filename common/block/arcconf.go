@@ -22,7 +22,7 @@ func formatDiskSize(kb int) (size string) {
 	}
 }
 
-func arcconf(id string, results chan<- *Disk, wg *sync.WaitGroup) {
+func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	tool := "/usr/sbin/arcconf"
 	defer wg.Done()
@@ -33,7 +33,7 @@ func arcconf(id string, results chan<- *Disk, wg *sync.WaitGroup) {
 	eid := strings.Split(id, ":")[1]
 	sid := strings.Split(id, ":")[2]
 
-	disk := &Disk{CES: id}
+	disk := Disk{CES: id}
 	// 从阵列卡 Pdinfo 中抓取的信息
 	arcconfInfo := Bash(fmt.Sprintf(`%s getconfig %s pd %s %s | egrep "  State|Model|Serial number|Total Size|SSD|Medium Error Count|SMART Warning Count"`, tool, cid, eid, sid))
 
@@ -95,8 +95,8 @@ func arcconf(id string, results chan<- *Disk, wg *sync.WaitGroup) {
 	results <- disk
 }
 
-func (m *arcconfCollector) Collect() []*Disk {
-	s := make([]*Disk, 0)
+func (m *arcconfCollector) Collect() []Disk {
+	s := make([]Disk, 0)
 	pdcesArray := make([]string, 0)
 	c := controller.Collect()
 	// fmt.Printf("server have %d controller\n", c.Num)
@@ -107,7 +107,7 @@ func (m *arcconfCollector) Collect() []*Disk {
 		pdcesArray = append(pdcesArray, pdces...)
 	}
 
-	results := make(chan *Disk, len(pdcesArray))
+	results := make(chan Disk, len(pdcesArray))
 
 	var wg sync.WaitGroup
 

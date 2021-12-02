@@ -22,9 +22,8 @@ type Disk struct {
 	SerialNumber string
 }
 
-// 内存逃逸?
 type DiskCollector interface {
-	Collect() []*Disk
+	Collect() []Disk
 }
 
 func Bash(cmd string) string {

@@ -24,7 +24,7 @@ func formatBlockSize(block int) (size string) {
 	}
 }
 
-func storcli(id string, results chan<- *Disk, wg *sync.WaitGroup) {
+func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	tool := "/opt/MegaRAID/storcli/storcli64"
 	defer wg.Done()
@@ -35,7 +35,7 @@ func storcli(id string, results chan<- *Disk, wg *sync.WaitGroup) {
 	eid := strings.Split(id, ":")[1]
 	sid := strings.Split(id, ":")[2]
 
-	disk := &Disk{Name: "sdb", CES: id}
+	disk := Disk{Name: "sdb", CES: id}
 	// 从阵列卡 Pdinfo 中抓取的信息
 	cmd := fmt.Sprintf(`%s /c%s/e%s/s%s show all`, tool, cid, eid, sid)
 	if eid == "" {
@@ -101,8 +101,8 @@ func storcli(id string, results chan<- *Disk, wg *sync.WaitGroup) {
 	results <- disk
 }
 
-func (m *storcliCollector) Collect() []*Disk {
-	s := make([]*Disk, 0)
+func (m *storcliCollector) Collect() []Disk {
+	s := make([]Disk, 0)
 	pdcesArray := make([]string, 0)
 	c := controller.Collect()
 	// fmt.Printf("server have %d controller\n", c.Num)
@@ -113,7 +113,7 @@ func (m *storcliCollector) Collect() []*Disk {
 		pdcesArray = append(pdcesArray, pdces...)
 	}
 
-	results := make(chan *Disk, len(pdcesArray))
+	results := make(chan Disk, len(pdcesArray))
 
 	var wg sync.WaitGroup
 
