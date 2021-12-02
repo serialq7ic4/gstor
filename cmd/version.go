@@ -12,7 +12,7 @@ var versionCmd = &cobra.Command{
 	Short: "版本信息",
 	Long:  `关于版本的长信息`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("3.1.0")
+		fmt.Println("0.1.2")
 	},
 }
 

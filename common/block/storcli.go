@@ -47,7 +47,10 @@ func storcli(id string, results chan<- *Disk, wg *sync.WaitGroup) {
 
 	for _, v := range pdInfo {
 		switch {
-		case strings.Contains(v, "SATA"):
+		case strings.Contains(v, " SSD "):
+			disk.State = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[2], " ")
+			disk.MediaType = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[7], " ")
+		case strings.Contains(v, " HDD "):
 			disk.State = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[2], " ")
 			disk.MediaType = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[7], " ")
 		case strings.Contains(v, "Media Error Count"):
@@ -58,9 +61,6 @@ func storcli(id string, results chan<- *Disk, wg *sync.WaitGroup) {
 			disk.SerialNumber = strings.Trim(strings.Split(v, "=")[1], " ")
 		case strings.Contains(v, "Model Number"):
 			disk.Vendor = strings.Split(strings.Trim(strings.Split(v, "=")[1], " "), " ")[0]
-		// case strings.Contains(v, "Number of Blocks"):
-		// blocks, _ := strconv.Atoi(strings.Trim(strings.Split(v, "=")[1], " "))
-		// disk.Capacity = strings.Replace(formatBlockSize(blocks*512), ".00", "", -1)
 		case strings.Contains(v, "Raw size"):
 			sectors := strings.Split(strings.Trim(strings.Split(strings.Trim(strings.Split(v, "[")[1], " "), " ")[0], " "), " ")[0]
 			blocks, _ := strconv.ParseInt(sectors, 0, 64)
