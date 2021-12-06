@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/chenq7an/gstor/common/block"
 	"os"
 
-	"github.com/spf13/cobra"
+	"github.com/chenq7an/gstor/common/block"
+
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
 )
 
 // listCmd represents the list command
@@ -28,17 +29,17 @@ func showBlock(cmd *cobra.Command, args []string) {
 	t.SetOutputMirror(os.Stdout)
 	// fmt.Printf("%-6s %-22s %-10s %-10s %-10s %-10s %-20s %-10s %-12s\n", "Disk", "SN", "Capacity", "Vendor", "MediaType", "Slot", "State", "MediaError", "PredictError")
 	// for i := 0; i < len(devices); i++ {
-		// fmt.Printf("%-6s %-22s %-10s %-10s %-10s %-10s %-20s %-10s %-12s\n", devices[i].Name, devices[i].SerialNumber, devices[i].Capacity, devices[i].Vendor, devices[i].MediaType, devices[i].CES, devices[i].State, devices[i].MediaError, devices[i].PredictError)
+	// fmt.Printf("%-6s %-22s %-10s %-10s %-10s %-10s %-20s %-10s %-12s\n", devices[i].Name, devices[i].SerialNumber, devices[i].Capacity, devices[i].Vendor, devices[i].MediaType, devices[i].CES, devices[i].State, devices[i].MediaError, devices[i].PredictError)
 	// }
 	t.AppendHeader(table.Row{"Disk", "SN", "Capacity", "Vendor", "MediaType", "Slot", "State", "MediaError", "PredictError"})
 	t.AppendSeparator()
-	for i := 0;i <len(devices);i++{
-		t.AppendRow(table.Row{devices[i].Name,devices[i].SerialNumber, devices[i].Capacity, devices[i].Vendor, devices[i].MediaType, devices[i].CES, devices[i].State, devices[i].MediaError, devices[i].PredictError})
+	for i := 0; i < len(devices); i++ {
+		t.AppendRow(table.Row{devices[i].Name, devices[i].SerialNumber, devices[i].Capacity, devices[i].Vendor, devices[i].MediaType, devices[i].CES, devices[i].State, devices[i].MediaError, devices[i].PredictError})
 	}
 	t.SetStyle(table.StyleLight)
 	t.SortBy([]table.SortBy{
-	    {Name: "Disk", Mode: table.Asc},
-    })
+		{Name: "Disk", Mode: table.Asc},
+	})
 	t.Render()
 }
 
