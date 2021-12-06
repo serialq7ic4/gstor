@@ -2,10 +2,11 @@ package block
 
 import (
 	"fmt"
-	"github.com/chenq7an/gstor/common/controller"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/chenq7an/gstor/common/controller"
 )
 
 type arcconfCollector struct{}
@@ -121,4 +122,12 @@ func (m *arcconfCollector) Collect() []Disk {
 		s = append(s, <-results)
 	}
 	return s
+}
+
+func (m *arcconfCollector) TurnOn(slot string) error {
+	return nil
+}
+
+func (m *arcconfCollector) TurnOff(slot string) error {
+	return nil
 }

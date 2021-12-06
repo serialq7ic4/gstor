@@ -3,9 +3,10 @@ package block
 import (
 	"bytes"
 	"errors"
-	"github.com/chenq7an/gstor/common/controller"
 	"log"
 	"os/exec"
+
+	"github.com/chenq7an/gstor/common/controller"
 )
 
 type Disk struct {
@@ -24,6 +25,8 @@ type Disk struct {
 
 type DiskCollector interface {
 	Collect() []Disk
+	TurnOn(slot string) error
+	TurnOff(slot string) error
 }
 
 func Bash(cmd string) string {

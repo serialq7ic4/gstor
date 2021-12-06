@@ -1,12 +1,14 @@
 package block
 
 import (
+	"errors"
 	"fmt"
-	"github.com/chenq7an/gstor/common/controller"
 	"io/ioutil"
 	"log"
 	"strings"
 	"sync"
+
+	"github.com/chenq7an/gstor/common/controller"
 )
 
 type megacliCollector struct{}
@@ -140,4 +142,22 @@ func (m *megacliCollector) Collect() []Disk {
 		s = append(s, <-results)
 	}
 	return s
+}
+
+func (m *megacliCollector) TurnOn(id string) error {
+	c := controller.Collect()
+	cid := strings.Split(id, ":")[0]
+	eid := strings.Split(id, ":")[1]
+	sid := strings.Split(id, ":")[2]
+	locateInfo := Bash(fmt.Sprintf(`%s -PdLocate -start –physdrv[%s:%s] -a%s`, c.Tool, eid, sid, cid))
+	return errors.New(locateInfo)
+}
+
+func (m *megacliCollector) TurnOff(id string) error {
+	c := controller.Collect()
+	cid := strings.Split(id, ":")[0]
+	eid := strings.Split(id, ":")[1]
+	sid := strings.Split(id, ":")[2]
+	locateInfo := Bash(fmt.Sprintf(`%s -PdLocate -start –physdrv[%s:%s] -a%s`, c.Tool, eid, sid, cid))
+	return errors.New(locateInfo)
 }

@@ -1,11 +1,13 @@
 package block
 
 import (
+	"errors"
 	"fmt"
-	"github.com/chenq7an/gstor/common/controller"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/chenq7an/gstor/common/controller"
 )
 
 type storcliCollector struct{}
@@ -127,4 +129,30 @@ func (m *storcliCollector) Collect() []Disk {
 		s = append(s, <-results)
 	}
 	return s
+}
+
+func (m *storcliCollector) TurnOn(id string) error {
+	c := controller.Collect()
+	cid := strings.Split(id, ":")[0]
+	eid := strings.Split(id, ":")[1]
+	sid := strings.Split(id, ":")[2]
+	cmd := fmt.Sprintf(`%s /c%s/e%s/s%s start locate`, c.Tool, cid, eid, sid)
+	if eid == "" {
+		cmd = fmt.Sprintf(`%s /c%s/s%s start locate`, c.Tool, cid, sid)
+	}
+	locateInfo := Bash(cmd)
+	return errors.New(locateInfo)
+}
+
+func (m *storcliCollector) TurnOff(id string) error {
+	c := controller.Collect()
+	cid := strings.Split(id, ":")[0]
+	eid := strings.Split(id, ":")[1]
+	sid := strings.Split(id, ":")[2]
+	cmd := fmt.Sprintf(`%s /c%s/e%s/s%s start locate`, c.Tool, cid, eid, sid)
+	if eid == "" {
+		cmd = fmt.Sprintf(`%s /c%s/s%s start locate`, c.Tool, cid, sid)
+	}
+	locateInfo := Bash(cmd)
+	return errors.New(locateInfo)
 }
