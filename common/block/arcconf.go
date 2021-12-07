@@ -1,6 +1,7 @@
 package block
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -28,7 +29,7 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	tool := "/usr/sbin/arcconf"
 	defer wg.Done()
 
-	fmt.Printf("Device %s collecting\n", id)
+	// fmt.Printf("Device %s collecting\n", id)
 
 	cid := strings.Split(id, ":")[0]
 	eid := strings.Split(id, ":")[1]
@@ -60,8 +61,6 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 			disk.MediaError = strings.Trim(strings.Split(v, ":")[1], " ")
 		case strings.Contains(v, "SMART Warning Count"):
 			disk.PredictError = strings.Trim(strings.Split(v, ":")[1], " ")
-		default:
-			fmt.Println(v)
 		}
 	}
 
@@ -91,7 +90,7 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		disk.Vendor = "HGST"
 	}
 
-	fmt.Printf("Device %s done\n", id)
+	// fmt.Printf("Device %s done\n", id)
 
 	results <- disk
 }
@@ -104,7 +103,6 @@ func (m *arcconfCollector) Collect() []Disk {
 	for i := 1; i <= c.Num; i++ {
 		output := Bash(fmt.Sprintf(`%s list %d | grep Physical | grep Drive | awk '{print $2}' | awk -F, '{print "%d:"$1":"$2}'`, c.Tool, i, i))
 		pdces := strings.Split(strings.Trim(output, "\n"), "\n")
-		// fmt.Println(pdces)
 		pdcesArray = append(pdcesArray, pdces...)
 	}
 
@@ -124,10 +122,28 @@ func (m *arcconfCollector) Collect() []Disk {
 	return s
 }
 
-func (m *arcconfCollector) TurnOn(slot string) error {
-	return nil
+func (m *arcconfCollector) TurnOn(id string) error {
+	c := controller.Collect()
+	cid := strings.Split(id, ":")[0]
+	eid := strings.Split(id, ":")[1]
+	sid := strings.Split(id, ":")[2]
+	ip := strings.Trim(Bash(`route -n | grep ^[0-9] | grep -v docker | grep -v "169.254.0.0" | \
+	awk '{print $NF}' | head -n1 | xargs -i ifconfig {} | grep inet | \
+	grep netmask | grep broadcast | awk '{print $2}'`), "\n")
+	cmd := fmt.Sprintf(`该控制器点灯操作需要交互,请登录服务器 %s 执行如下命令点灯
+%s identify %s device %s %s`, ip, c.Tool, cid, eid, sid)
+	return errors.New(cmd)
 }
 
-func (m *arcconfCollector) TurnOff(slot string) error {
-	return nil
+func (m *arcconfCollector) TurnOff(id string) error {
+	c := controller.Collect()
+	cid := strings.Split(id, ":")[0]
+	eid := strings.Split(id, ":")[1]
+	sid := strings.Split(id, ":")[2]
+	ip := strings.Trim(Bash(`route -n | grep ^[0-9] | grep -v docker | grep -v "169.254.0.0" | \
+	awk '{print $NF}' | head -n1 | xargs -i ifconfig {} | grep inet | \
+	grep netmask | grep broadcast | awk '{print $2}'`), "\n")
+	cmd := fmt.Sprintf(`该控制器点灯操作需要交互,请登录服务器 %s 执行如下命令点灯
+%s identify %s device %s %s`, ip, c.Tool, cid, eid, sid)
+	return errors.New(cmd)
 }
