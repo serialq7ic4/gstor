@@ -94,6 +94,10 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		disk.Vendor = "HGST"
 	}
 
+	if strings.HasPrefix(disk.Vendor, "MICRON") {
+		disk.Vendor = "Micron"
+	}
+
 	// fmt.Printf("Device %s done\n", id)
 
 	results <- disk

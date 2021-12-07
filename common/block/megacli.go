@@ -93,6 +93,14 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		disk.Vendor = "SEAGATE"
 	}
 
+	if strings.HasPrefix(disk.Vendor, "HUS") {
+		disk.Vendor = "HGST"
+	}
+
+	if strings.HasPrefix(disk.Vendor, "MICRON") {
+		disk.Vendor = "Micron"
+	}
+
 	//根据 PD 的 LD 信息精准匹配盘符与slot对应关系
 	ldInfoSection := Bash(fmt.Sprintf(`%s -LdPdInfo -a%s | egrep "Virtual Drive|%s"`, tool, cid, _wwn))
 

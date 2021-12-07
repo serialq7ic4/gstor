@@ -13,7 +13,7 @@ import (
 // listCmd represents the list command
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "简短罗列出硬盘基本信息",
+	Short: "罗列出硬盘基本信息",
 	Long:  `基于存储控制器展示硬盘诸如盘符、在控制器上的ces信息及硬盘状态等`,
 	Run:   showBlock,
 }
