@@ -10,17 +10,15 @@ import (
 )
 
 type Disk struct {
-	Name         string
-	CES          string
-	State        string
-	MediaType    string
-	MediaError   string
-	PredictError string
-	TargetId     string
-
-	Vendor       string
-	Capacity     string
-	SerialNumber string
+	Name         string `json:"name"`
+	CES          string `json:"ces"`
+	State        string `json:"state"`
+	MediaType    string `json:"mediatype"`
+	MediaError   string `json:"mediaerror"`
+	PredictError string `json:"predicterror"`
+	Vendor       string `json:"vendor"`
+	Capacity     string `json:"capcity"`
+	SerialNumber string `json:"serialnumber"`
 }
 
 type DiskCollector interface {

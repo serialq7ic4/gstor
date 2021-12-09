@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -25,18 +26,32 @@ func showBlock(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	devices := disk.Collect()
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"Disk", "SN", "Capacity", "Vendor", "MediaType", "Slot", "State", "MediaError", "PredictError"})
-	t.AppendSeparator()
-	for i := 0; i < len(devices); i++ {
-		t.AppendRow(table.Row{devices[i].Name, devices[i].SerialNumber, devices[i].Capacity, devices[i].Vendor, devices[i].MediaType, devices[i].CES, devices[i].State, devices[i].MediaError, devices[i].PredictError})
+	form, _ := cmd.Flags().GetString("format")
+	if form == "" {
+		t := table.NewWriter()
+		t.SetOutputMirror(os.Stdout)
+		t.AppendHeader(table.Row{"Disk", "SN", "Capacity", "Vendor", "MediaType", "Slot", "State", "MediaError", "PredictError"})
+		t.AppendSeparator()
+		for i := 0; i < len(devices); i++ {
+			t.AppendRow(table.Row{devices[i].Name, devices[i].SerialNumber, devices[i].Capacity, devices[i].Vendor, devices[i].MediaType, devices[i].CES, devices[i].State, devices[i].MediaError, devices[i].PredictError})
+		}
+		t.SetStyle(table.StyleLight)
+		t.SortBy([]table.SortBy{
+			{Name: "Disk", Mode: table.Asc},
+		})
+		t.Render()
+	} else {
+		var s []block.Disk
+		for _, v := range devices {
+			s = append(s, block.Disk{Name: v.Name, CES: v.CES, State: v.State, MediaType: v.MediaType, MediaError: v.MediaError, PredictError: v.PredictError, Vendor: v.Vendor, Capacity: v.Capacity, SerialNumber: v.SerialNumber})
+		}
+
+		r, err := json.Marshal(s)
+		if err != nil {
+			fmt.Println("Json error:", err)
+		}
+		fmt.Println(string(r))
 	}
-	t.SetStyle(table.StyleLight)
-	t.SortBy([]table.SortBy{
-		{Name: "Disk", Mode: table.Asc},
-	})
-	t.Render()
 }
 
 func init() {
@@ -50,5 +65,5 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// listCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	listCmd.Flags().StringP("format", "f", "", "{json}")
 }
