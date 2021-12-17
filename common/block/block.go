@@ -3,7 +3,6 @@ package block
 import (
 	"bytes"
 	"errors"
-	"log"
 	"os/exec"
 
 	"github.com/chenq7an/gstor/common/controller"
@@ -36,7 +35,8 @@ func Bash(cmd string) string {
 	outStr, _ := stdout.String(), stderr.String()
 	// fmt.Printf("out:%serr:%s\n", outStr, errStr)
 	if err != nil {
-		log.Fatalf("cmd.Run() failed with %s\n", cmd)
+		return ""
+		// log.Fatalf("cmd.Run() failed with %s\n", cmd)
 	}
 	return outStr //strings.Split(strings.Trim(outStr, "\n"), "\n")
 }
