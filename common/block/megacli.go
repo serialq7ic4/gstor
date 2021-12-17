@@ -171,6 +171,6 @@ func (m *megacliCollector) TurnOff(id string) error {
 	cid := strings.Split(id, ":")[0]
 	eid := strings.Split(id, ":")[1]
 	sid := strings.Split(id, ":")[2]
-	locateInfo := Bash(fmt.Sprintf(`%s -PdLocate -start –physdrv[%s:%s] -a%s`, c.Tool, eid, sid, cid))
+	locateInfo := Bash(fmt.Sprintf(`%s -PdLocate -stop –physdrv[%s:%s] -a%s`, c.Tool, eid, sid, cid))
 	return errors.New(locateInfo)
 }

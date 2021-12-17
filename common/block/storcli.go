@@ -154,9 +154,9 @@ func (m *storcliCollector) TurnOff(id string) error {
 	cid := strings.Split(id, ":")[0]
 	eid := strings.Split(id, ":")[1]
 	sid := strings.Split(id, ":")[2]
-	cmd := fmt.Sprintf(`%s /c%s/e%s/s%s start locate`, c.Tool, cid, eid, sid)
+	cmd := fmt.Sprintf(`%s /c%s/e%s/s%s stop locate`, c.Tool, cid, eid, sid)
 	if eid == "" {
-		cmd = fmt.Sprintf(`%s /c%s/s%s start locate`, c.Tool, cid, sid)
+		cmd = fmt.Sprintf(`%s /c%s/s%s stop locate`, c.Tool, cid, sid)
 	}
 	locateInfo := Bash(cmd)
 	return errors.New(locateInfo)
