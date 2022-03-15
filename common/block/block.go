@@ -13,6 +13,7 @@ type Disk struct {
 	CES          string `json:"ces"`
 	State        string `json:"state"`
 	MediaType    string `json:"mediatype"`
+	PDType       string `json:"pdtype"`
 	MediaError   string `json:"mediaerror"`
 	PredictError string `json:"predicterror"`
 	Vendor       string `json:"vendor"`

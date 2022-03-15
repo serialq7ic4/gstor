@@ -37,7 +37,7 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	disk := Disk{CES: id}
 	// 从阵列卡 Pdinfo 中抓取的信息
-	arcconfInfo := Bash(fmt.Sprintf(`%s getconfig %s pd %s %s | egrep "  State|Model|Serial number|Total Size|SSD|Medium Error Count|SMART Warning Count|Media Failures|Predictive Failures"`, tool, cid, eid, sid))
+	arcconfInfo := Bash(fmt.Sprintf(`%s getconfig %s pd %s %s | egrep "  State|Model|Serial number|Total Size|SSD|Medium Error Count|SMART Warning Count|Media Failures|Predictive Failures|Transfer Speed"`, tool, cid, eid, sid))
 
 	pdInfo := strings.Split(strings.Trim(arcconfInfo, "\n"), "\n")
 
@@ -57,6 +57,8 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 			disk.MediaType = "HDD"
 		case strings.Contains(v, "Yes"):
 			disk.MediaType = "SSD"
+		case strings.Contains(v, "Transfer Speed"):
+			disk.PDType = strings.Trim(strings.Split(strings.Trim(strings.Split(v, ":")[1], " "), " ")[0], " ")
 		case strings.Contains(v, "Medium Error Count"):
 			disk.MediaError = strings.Trim(strings.Split(v, ":")[1], " ")
 		case strings.Contains(v, "Media Failures"):

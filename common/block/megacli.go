@@ -30,7 +30,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	disk := Disk{CES: id, MediaError: "0", PredictError: "0"}
 	// 从阵列卡 Pdinfo 中抓取的信息
-	megacliInfo := Bash(fmt.Sprintf(`%s -Pdinfo -PhysDrv[%s:%s] -a%s | egrep "Device Id:|WWN:|Firmware state:|Media Type:|Media Error Count:|Other Error Count:|Predictive Failure Count:"`, tool, eid, sid, cid))
+	megacliInfo := Bash(fmt.Sprintf(`%s -Pdinfo -PhysDrv[%s:%s] -a%s | egrep "Device Id:|WWN:|Firmware state:|Media Type:|Media Error Count:|Other Error Count:|Predictive Failure Count:|PD Type:"`, tool, eid, sid, cid))
 
 	pdInfo := strings.Split(strings.Trim(megacliInfo, "\n"), "\n")
 
@@ -49,14 +49,16 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 				mediaType += string(t[0])
 			}
 			disk.MediaType = mediaType
+		case strings.Contains(v, "PD Type"):
+			disk.PDType = strings.Trim(strings.Split(v, ":")[1], " ")
 		case strings.Contains(v, "Media Error Count"):
 			merr := strings.Trim(strings.Split(v, ":")[1], " ")
 			disk.MediaError = cast.ToString(cast.ToInt(merr) + cast.ToInt(disk.MediaError))
 		case strings.Contains(v, "Other Error Count"):
-			oerr := strings.Trim(strings.Split(v, ":")[1], " ")
-			disk.MediaError = cast.ToString(cast.ToInt(oerr) + cast.ToInt(disk.MediaError))
-		case strings.Contains(v, "Predictive Failure Count"):
 			disk.PredictError = strings.Trim(strings.Split(v, ":")[1], " ")
+		case strings.Contains(v, "Predictive Failure Count"):
+			perr := strings.Trim(strings.Split(v, ":")[1], " ")
+			disk.PredictError = cast.ToString(cast.ToInt(perr) + cast.ToInt(disk.PredictError))
 		}
 	}
 

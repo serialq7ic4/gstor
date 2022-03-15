@@ -52,9 +52,11 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		case strings.Contains(v, " SSD "):
 			disk.State = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[2], " ")
 			disk.MediaType = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[7], " ")
+			disk.PDType = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[6], " ")
 		case strings.Contains(v, " HDD "):
 			disk.State = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[2], " ")
 			disk.MediaType = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[7], " ")
+			disk.PDType = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[6], " ")
 		case strings.Contains(v, "Media Error Count"):
 			disk.MediaError = strings.Trim(strings.Split(v, "=")[1], " ")
 		case strings.Contains(v, "Predictive Failure Count"):
