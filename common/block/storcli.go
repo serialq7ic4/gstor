@@ -31,7 +31,7 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	tool := "/opt/MegaRAID/storcli/storcli64"
 	defer wg.Done()
 
-	fmt.Printf("Device %s collecting\n", id)
+	// fmt.Printf("Device %s collecting\n", id)
 
 	cid := strings.Split(id, ":")[0]
 	eid := strings.Split(id, ":")[1]
