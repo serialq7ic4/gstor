@@ -49,7 +49,9 @@ var reportCmd = &cobra.Command{
 		devices := disk.Collect()
 		for _, v := range devices {
 			if v.MediaError > "0" {
-				s = append(s, v.Capacity+"_"+v.MediaType+"_"+v.Name+"_mediaerror_"+v.MediaError)
+				s = append(s, v.Capacity+"_"+v.PDType+"_"+v.MediaType+"_"+v.Name+"_mediaerror_"+v.MediaError)
+			} else if v.State == "Failed" {
+				s = append(s, v.Capacity+"_"+v.PDType+"_"+v.MediaType+"_"+v.Name+"_"+v.State)
 			}
 		}
 		payload.Type = "disk"

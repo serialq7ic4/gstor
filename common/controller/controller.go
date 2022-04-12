@@ -50,7 +50,8 @@ func ChooseTool(c string) string {
 		"LSI Logic / Symbios Logic MegaRAID SAS-3 3108",
 		"LSI Logic / Symbios Logic MegaRAID SAS-3 3316",
 		"LSI Logic / Symbios Logic MegaRAID SAS 2008",
-		"Broadcom / LSI MegaRAID SAS 2208":
+		"Broadcom / LSI MegaRAID SAS 2208",
+		"Broadcom / LSI MegaRAID SAS-3 3108":
 		t = `/opt/MegaRAID/MegaCli/MegaCli64`
 	case "LSI Logic / Symbios Logic SAS3008 PCI-Express Fusion-MPT SAS-3",
 		"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3408",

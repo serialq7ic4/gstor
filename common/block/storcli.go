@@ -31,7 +31,7 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	tool := "/opt/MegaRAID/storcli/storcli64"
 	defer wg.Done()
 
-	// fmt.Printf("Device %s collecting\n", id)
+	fmt.Printf("Device %s collecting\n", id)
 
 	cid := strings.Split(id, ":")[0]
 	eid := strings.Split(id, ":")[1]
@@ -73,9 +73,9 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	}
 
 	if disk.State == "Onln" {
-		disk.Name = "sda"
+		disk.Name = strings.Trim(Bash(`mount | grep "/boot " | awk '{print $1}' | awk -F/ '{print $NF}' | sed 's/[0-9]$//g'`), "\n")
 	} else {
-		lsblkInfoSection := Bash(`lsblk -o KNAME,MODEL,SERIAL,TYPE | grep disk | grep ^sd[a-z]`)
+		lsblkInfoSection := Bash(fmt.Sprintf(`lsblk -o KNAME,MODEL,SERIAL,TYPE | grep disk | grep ^sd[a-z] | grep -v %s`, disk.Name))
 
 		lsblkInfo := strings.Split(strings.Trim(lsblkInfoSection, "\n"), "\n")
 
@@ -116,7 +116,7 @@ func (m *storcliCollector) Collect() []Disk {
 	c := controller.Collect()
 	// fmt.Printf("server have %d controller\n", c.Num)
 	for i := 0; i < c.Num; i++ {
-		output := Bash(fmt.Sprintf(`%s /c%d show | egrep "SSD|HDD" | awk '{print "%d:"$1}'`, c.Tool, i, i))
+		output := Bash(fmt.Sprintf(`%s /c%d show | egrep "SSD|HDD" | awk '{print "%d:"$1}' | sort | uniq`, c.Tool, i, i))
 		pdces := strings.Split(strings.Trim(output, "\n"), "\n")
 		// fmt.Println(pdces)
 		pdcesArray = append(pdcesArray, pdces...)
