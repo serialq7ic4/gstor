@@ -20,7 +20,6 @@ var mkraid0Cmd = &cobra.Command{
 		eid := strings.Split(args[0], ":")[1]
 		sid := strings.Split(args[0], ":")[2]
 		if c.Tool == "/opt/MegaRAID/MegaCli/MegaCli64" {
-			bash(fmt.Sprintf(`%s -cfgforeign -clear -aALL`, c.Tool))
 			bash(fmt.Sprintf(`%s -CfgLdAdd -r0 [%s:%s] WB Direct -a%s`, c.Tool, eid, sid, cid))
 		} else {
 			fmt.Printf("Not support yet, %s\n", c.Name)
