@@ -156,7 +156,10 @@ func (m *megacliCollector) Collect() []Disk {
 	for i := 0; i < len(pdcesArray); i++ {
 		s = append(s, <-results)
 	}
-	s = append(s, Nvme()...)
+	nvmes := Nvme()
+	if len(nvmes) > 0 {
+		s = append(s, nvmes...)
+	}
 	return s
 }
 
