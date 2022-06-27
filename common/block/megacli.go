@@ -132,8 +132,8 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 }
 
 func (m *megacliCollector) Collect() []Disk {
-	s := make([]Disk, 0)
-	pdcesArray := make([]string, 0)
+	s := []Disk{}
+	pdcesArray := []string{}
 	c := controller.Collect()
 	// fmt.Printf("server have %d controller\n", c.Num)
 	for i := 0; i < c.Num; i++ {
@@ -156,6 +156,7 @@ func (m *megacliCollector) Collect() []Disk {
 	for i := 0; i < len(pdcesArray); i++ {
 		s = append(s, <-results)
 	}
+	s = append(s, Nvme()...)
 	return s
 }
 

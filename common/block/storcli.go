@@ -111,8 +111,8 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 }
 
 func (m *storcliCollector) Collect() []Disk {
-	s := make([]Disk, 0)
-	pdcesArray := make([]string, 0)
+	s := []Disk{}
+	pdcesArray := []string{}
 	c := controller.Collect()
 	// fmt.Printf("server have %d controller\n", c.Num)
 	for i := 0; i < c.Num; i++ {
