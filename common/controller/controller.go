@@ -49,6 +49,7 @@ func ChooseTool(c string) string {
 		"LSI Logic / Symbios Logic MegaRAID SAS-3 3008",
 		"LSI Logic / Symbios Logic MegaRAID SAS-3 3108",
 		"LSI Logic / Symbios Logic MegaRAID SAS-3 3316",
+		"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3508",
 		"LSI Logic / Symbios Logic MegaRAID SAS 2008",
 		"Broadcom / LSI MegaRAID SAS 2208",
 		"Broadcom / LSI MegaRAID SAS-3 3108":

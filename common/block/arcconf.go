@@ -70,18 +70,26 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		}
 	}
 
-	//从 PD 的 LD 中抓取的信息
-	lsscsiInfoSection := Bash(`lsscsi | grep dev | awk '{print $4,$NF}'`)
+	adeptecInfo := Bash(fmt.Sprintf(`%s list | grep "Controller %s:"`, tool, cid))
 
-	lsscsiInfo := strings.Split(strings.Trim(lsscsiInfoSection, "\n"), "\n")
+	controllerMode := strings.Trim(strings.Split(strings.Trim(strings.Split(adeptecInfo, "(")[1], " "), ")")[0], " ")
 
-	logicalDeviceName := strings.Trim(Bash(fmt.Sprintf(`%s getconfig %s ld | egrep "Logical Device name|%s" | grep -B1 %s | grep "Logical Device name" | awk '{print $NF}'`, tool, cid, disk.SerialNumber, disk.SerialNumber)), "\n")
+	if strings.Contains(controllerMode, "Expose RAW") {
+		//从 PD 的 LD 中抓取的信息
+		lsscsiInfoSection := Bash(`lsscsi | grep dev | awk '{print $4,$NF}'`)
 
-	for i, v := range lsscsiInfo {
-		switch {
-		case strings.HasPrefix(v, fmt.Sprintf("%s ", logicalDeviceName)):
-			disk.Name = strings.Trim(strings.Split(lsscsiInfo[i], "/")[2], " ")
+		lsscsiInfo := strings.Split(strings.Trim(lsscsiInfoSection, "\n"), "\n")
+
+		logicalDeviceName := strings.Trim(Bash(fmt.Sprintf(`%s getconfig %s ld | egrep "Logical Device name|%s" | grep -B1 %s | grep "Logical Device name" | awk '{print $NF}'`, tool, cid, disk.SerialNumber, disk.SerialNumber)), "\n")
+
+		for i, v := range lsscsiInfo {
+			switch {
+			case strings.HasPrefix(v, fmt.Sprintf("%s ", logicalDeviceName)):
+				disk.Name = strings.Trim(strings.Split(lsscsiInfo[i], "/")[2], " ")
+			}
 		}
+	} else if strings.Contains(controllerMode, "Hide RAW") {
+		disk.Name = strings.Trim(Bash(fmt.Sprintf(`%s getconfig %s ld | egrep "Disk Name|%s" | grep -B1 %s | grep "Disk Name" | awk '{print $NF}' | awk -F/ '{print $NF}'`, tool, cid, disk.SerialNumber, disk.SerialNumber)), "\n")
 	}
 
 	if disk.Name == "" {

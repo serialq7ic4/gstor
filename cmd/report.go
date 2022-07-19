@@ -89,7 +89,7 @@ func bash(cmd string) string {
 	outStr, _ := string(stdout.Bytes()), string(stderr.Bytes())
 	// fmt.Printf("out:%serr:%s\n", outStr, errStr)
 	if err != nil {
-		log.Fatalf("cmd.Run() failed with %s\n", err)
+		log.Fatalf("%s failed with %s\n", cmd, err)
 	}
 	return strings.Replace(outStr, "\n", "", -1)
 }
