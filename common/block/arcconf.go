@@ -74,7 +74,7 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	controllerMode := strings.Trim(strings.Split(strings.Trim(strings.Split(adeptecInfo, "(")[1], " "), ")")[0], " ")
 
-	if strings.Contains(controllerMode, "Expose RAW") {
+	if strings.Contains(controllerMode, "RAW") {
 		//从 PD 的 LD 中抓取的信息
 		lsscsiInfoSection := Bash(`lsscsi | grep dev | awk '{print $4,$NF}'`)
 
@@ -119,7 +119,7 @@ func (m *arcconfCollector) Collect() []Disk {
 	c := controller.Collect()
 	// fmt.Printf("server have %d controller\n", c.Num)
 	for i := 1; i <= c.Num; i++ {
-		output := Bash(fmt.Sprintf(`%s list %d | grep Physical | grep Drive | awk '{print $2}' | awk -F, '{print "%d:"$1":"$2}'`, c.Tool, i, i))
+		output := Bash(fmt.Sprintf(`%s list %d | grep Physical | grep Drive | grep Slot | awk '{print $2}' | awk -F, '{print "%d:"$1":"$2}'`, c.Tool, i, i))
 		pdces := strings.Split(strings.Trim(output, "\n"), "\n")
 		pdcesArray = append(pdcesArray, pdces...)
 	}
