@@ -50,7 +50,7 @@ var reportCmd = &cobra.Command{
 		for _, v := range devices {
 			if v.MediaError > "0" {
 				s = append(s, v.Capacity+"_"+v.PDType+"_"+v.MediaType+"_"+v.Name+"_mediaerror_"+v.MediaError)
-			} else if v.State == "Failed" || v.State == "Offline" {
+			} else if v.State == "Failed" || v.State == "Offline" || v.State == "Unconfigured(bad)" {
 				s = append(s, v.Capacity+"_"+v.PDType+"_"+v.MediaType+"_"+v.Name+"_"+v.State)
 			}
 		}
