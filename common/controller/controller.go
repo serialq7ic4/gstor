@@ -57,7 +57,8 @@ func ChooseTool(c string) string {
 		t = `/opt/MegaRAID/MegaCli/MegaCli64`
 	case "LSI Logic / Symbios Logic SAS3008 PCI-Express Fusion-MPT SAS-3",
 		"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3408",
-		"Broadcom / LSI SAS3008 PCI-Express Fusion-MPT SAS-3":
+		"Broadcom / LSI SAS3008 PCI-Express Fusion-MPT SAS-3",
+		"Broadcom / LSI MegaRAID 12GSAS/PCIe Secure SAS39xx":
 		t = `/opt/MegaRAID/storcli/storcli64`
 	case "Adaptec Series 8 12G SAS/PCIe 3",
 		"Adaptec Device 028f":

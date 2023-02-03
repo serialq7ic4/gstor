@@ -25,7 +25,6 @@ func formatDiskSize(kb int) (size string) {
 }
 
 func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
-
 	tool := "/usr/sbin/arcconf"
 	defer wg.Done()
 
@@ -75,7 +74,7 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	controllerMode := strings.Trim(strings.Split(strings.Trim(strings.Split(adeptecInfo, "(")[1], " "), ")")[0], " ")
 
 	if strings.Contains(controllerMode, "RAW") {
-		//从 PD 的 LD 中抓取的信息
+		// 从 PD 的 LD 中抓取的信息
 		lsscsiInfoSection := Bash(`lsscsi | grep dev | awk '{print $4,$NF}'`)
 
 		lsscsiInfo := strings.Split(strings.Trim(lsscsiInfoSection, "\n"), "\n")

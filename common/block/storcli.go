@@ -27,7 +27,6 @@ func formatBlockSize(block int) (size string) {
 }
 
 func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
-
 	tool := "/opt/MegaRAID/storcli/storcli64"
 	defer wg.Done()
 

@@ -3,8 +3,8 @@ package block
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"strings"
 	"sync"
 
@@ -15,7 +15,6 @@ import (
 type megacliCollector struct{}
 
 func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
-
 	var _deviceId string
 	var _wwn string
 
@@ -62,20 +61,20 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		}
 	}
 
-	//从 SMART 中抓取的信息
+	// 从 SMART 中抓取的信息
 	var scsiBusNumber string
 	adapterInfo := Bash(fmt.Sprintf(`%s -adpgetpciinfo -a%s | grep "Bus Number" | awk '{print $NF}'`, tool, cid))
 	busNumber := strings.Trim(adapterInfo, "\n")
 	busNumber = fmt.Sprintf("%02s", busNumber)
 	pwd := fmt.Sprintf(`/sys/bus/pci/devices/0000:%s:00.0/`, busNumber)
-	fileList, err := ioutil.ReadDir(pwd)
+	fileList, err := os.ReadDir(pwd)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for i := range fileList {
+	for _, file := range fileList {
 		switch {
-		case strings.Contains(fileList[i].Name(), "host"):
-			scsiBusNumber = strings.Replace(fileList[i].Name(), "host", "", -1)
+		case strings.Contains(file.Name(), "host"):
+			scsiBusNumber = strings.Replace(file.Name(), "host", "", -1)
 		}
 	}
 
@@ -108,7 +107,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		disk.Vendor = "Micron"
 	}
 
-	//根据 PD 的 LD 信息精准匹配盘符与slot对应关系
+	// 根据 PD 的 LD 信息精准匹配盘符与slot对应关系
 	ldInfoSection := Bash(fmt.Sprintf(`%s -LdPdInfo -a%s | egrep "Virtual Drive|%s"`, tool, cid, _wwn))
 
 	ldInfo := strings.Split(strings.Trim(ldInfoSection, "\n"), "\n")

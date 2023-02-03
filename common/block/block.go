@@ -39,7 +39,7 @@ func Bash(cmd string) string {
 		return ""
 		// log.Fatalf("cmd.Run() failed with %s\n", cmd)
 	}
-	return outStr //strings.Split(strings.Trim(outStr, "\n"), "\n")
+	return outStr // strings.Split(strings.Trim(outStr, "\n"), "\n")
 }
 
 func Devices() (DiskCollector, error) {
