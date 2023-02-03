@@ -34,7 +34,7 @@ func bash(cmd string) string {
 	cmdjob.Stdout = &stdout
 	cmdjob.Stderr = &stderr
 	err := cmdjob.Run()
-	outStr, _ := string(stdout.Bytes()), string(stderr.Bytes())
+	outStr, _ := stdout.String(), stderr.String()
 	// fmt.Printf("out:%serr:%s\n", outStr, errStr)
 	if err != nil {
 		log.Fatalf("cmd.Run() failed with %s\n", err)
