@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -75,7 +75,7 @@ var reportCmd = &cobra.Command{
 		}
 		defer response.Body.Close()
 		fmt.Println("response Status:", response.Status)
-		body, _ := ioutil.ReadAll(response.Body)
+		body, _ := io.ReadAll(response.Body)
 		fmt.Println("response Body:", string(body))
 	},
 }

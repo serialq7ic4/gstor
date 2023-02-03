@@ -16,17 +16,20 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "罗列出硬盘基本信息",
 	Long:  `基于存储控制器展示硬盘诸如盘符、在控制器上的ces信息及硬盘状态等`,
-	Run:   showBlock,
+	Run: func(cmd *cobra.Command, args []string) {
+		form, _ := cmd.Flags().GetString("format")
+		_ = showBlock(form)
+	},
 }
 
-func showBlock(cmd *cobra.Command, args []string) {
+func showBlock(form string) string {
 	disk, err := block.Devices()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 	devices := disk.Collect()
-	form, _ := cmd.Flags().GetString("format")
+	// form, _ := cmd.Flags().GetString("format")
 	if form == "" {
 		t := table.NewWriter()
 		t.SetOutputMirror(os.Stdout)
@@ -40,6 +43,7 @@ func showBlock(cmd *cobra.Command, args []string) {
 			{Name: "Disk", Mode: table.Asc},
 		})
 		t.Render()
+		return "noformat"
 	} else {
 		var s []block.Disk
 		for _, v := range devices {
@@ -51,6 +55,7 @@ func showBlock(cmd *cobra.Command, args []string) {
 			fmt.Println("Json error:", err)
 		}
 		fmt.Println(string(r))
+		return string(r)
 	}
 }
 
