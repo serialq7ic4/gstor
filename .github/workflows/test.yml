@@ -23,7 +23,6 @@ jobs:
       matrix:
         platform:
           - ubuntu
-          - macOS
 
     name: "${{ matrix.platform }}"
 
