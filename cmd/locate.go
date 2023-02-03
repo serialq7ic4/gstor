@@ -13,7 +13,7 @@ var locateCmd = &cobra.Command{
 }
 
 func locate(cmd *cobra.Command, args []string) {
-	cmd.Help()
+	_ = cmd.Help()
 }
 
 func init() {

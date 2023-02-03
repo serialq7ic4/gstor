@@ -1,7 +1,7 @@
 ![gstor](https://user-images.githubusercontent.com/21356580/216275709-3ed3420b-5c35-47d7-b824-582bcf933c4d.jpeg)
 Gstor 是一个应用于 Linux 服务器上的硬盘管理工具。
 
-[![](https://github.com/serialq7ic4/gstor/workflows/test/badge.svg)](https://github.com/serialq7ic4/gstor/workflows/test/badge.svg)
+![https://github.com/serialq7ic4/gstor/actions/workflows/test.yml](https://github.com/serialq7ic4/gstor/workflows/test/badge.svg)
 
 # 概述
 

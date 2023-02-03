@@ -86,7 +86,7 @@ func bash(cmd string) string {
 	cmdjob.Stdout = &stdout
 	cmdjob.Stderr = &stderr
 	err := cmdjob.Run()
-	outStr, _ := string(stdout.Bytes()), string(stderr.Bytes())
+	outStr, _ := stdout.String(), stderr.String()
 	// fmt.Printf("out:%serr:%s\n", outStr, errStr)
 	if err != nil {
 		log.Fatalf("%s failed with %s\n", cmd, err)
@@ -107,5 +107,5 @@ func init() {
 	// is called directly, e.g.:
 	// reportCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	reportCmd.Flags().StringVarP(&apiUrl, "url", "u", "", "指定数据上报的api")
-	reportCmd.MarkFlagRequired("url")
+	_ = reportCmd.MarkFlagRequired("url")
 }
