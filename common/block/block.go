@@ -44,7 +44,9 @@ func Bash(cmd string) string {
 
 func Devices() (DiskCollector, error) {
 	c := controller.Collect()
-
+	// if viper.Get("cli") != "" {
+	// c.Tool = viper.GetString("cli")
+	// }
 	switch c.Tool {
 	case "/opt/MegaRAID/MegaCli/MegaCli64":
 		return &megacliCollector{}, nil
