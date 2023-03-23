@@ -55,6 +55,7 @@ func initConfig() {
 		// Search config in home directory with name ".gstor" (without extension).
 		viper.AddConfigPath(home)
 		viper.SetConfigName(".gstor")
+		viper.SetConfigType("yaml")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
