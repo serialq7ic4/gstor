@@ -104,22 +104,89 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	}
 
 	if strings.HasPrefix(disk.Vendor, "MICRON") {
-		disk.Vendor = "Micron"
+		disk.Vendor = "MICRON"
+	}
+
+	if disk.State == "JBOD" {
+		disk.Name = strings.Trim(Bash(fmt.Sprintf(`ls -l /dev/disk/by-id/ | grep -E "*%s*" | awk -F/ '{print $NF}'`, disk.SerialNumber)), "\n")
 	}
 
 	// 根据 PD 的 LD 信息精准匹配盘符与slot对应关系
-	ldInfoSection := Bash(fmt.Sprintf(`%s -LdPdInfo -a%s | egrep "Virtual Drive|%s"`, tool, cid, _wwn))
+	ldInfoSection := Bash(fmt.Sprintf(`%s -LdPdInfo -a%s | egrep "Virtual Drive|Sequence Number|%s"`, tool, cid, _wwn))
 
 	ldInfo := strings.Split(strings.Trim(ldInfoSection, "\n"), "\n")
 
 	for i, v := range ldInfo {
-		switch {
-		case strings.Contains(v, _wwn):
-			i = i - 1
-			targetId := strings.Split(strings.Trim(strings.Split(strings.Trim(strings.Split(ldInfo[i], "(")[1], " "), ":")[1], " "), ")")[0]
-			disk.Name = strings.Trim(Bash(fmt.Sprintf(`ls -l /dev/disk/by-path/ | grep -E "pci-0000:%s:00.0-scsi-[0-9]:[0-9]:%s:[0-9] " | awk -F/ '{print $NF}'`, busNumber, targetId)), "\n")
+		var targetId, sequenceNum string
+
+		// 如果当前行包含 _wwn，则在前后行查找 targetId 和 sequenceNum
+		if strings.Contains(v, _wwn) {
+			// 回溯查找最近的 Target Id，确保在 WWN 行之前存在
+			for j := i - 1; j >= 0; j-- {
+				if strings.Contains(ldInfo[j], "Target Id") {
+					parts := strings.Split(strings.TrimSpace(ldInfo[j]), "(")
+					if len(parts) > 1 {
+						targetParts := strings.Split(strings.Trim(parts[1], " "), ":")
+						if len(targetParts) > 1 {
+							targetId = strings.Trim(targetParts[1], " )")
+							break
+						}
+					}
+				}
+			}
+
+			// 确保不越界
+			if i+1 < len(ldInfo) {
+				// 获取 sequenceNum，假设它在 _wwn 行的下一行
+				sequenceParts := strings.Split(ldInfo[i+1], ":")
+				if len(sequenceParts) > 1 {
+					sequenceNum = strings.TrimSpace(sequenceParts[1])
+				}
+			}
+
+			// 如果 targetId 和 sequenceNum 都找到了，执行查找
+			if targetId != "" && sequenceNum != "" {
+				disk.Name = strings.Trim(Bash(fmt.Sprintf(
+					`ls -l /dev/disk/by-path/ | grep -E "pci-0000:%s:00.0-scsi-[0-9]:%s:%s:[0-9] " | awk -F/ '{print $NF}'`,
+					busNumber, sequenceNum, targetId)), "\n")
+			}
 		}
 	}
+
+	// for i, v := range ldInfo {
+	// var targetId, sequenceNum string
+	//
+	// 如果当前行包含 _wwn，则在前后行查找 targetId 和 sequenceNum
+	// if strings.Contains(v, _wwn) {
+	// 确保不越界
+	// if i > 0 {
+	// 获取 targetId，假设它在 _wwn 行的前一行
+	// parts := strings.Split(strings.TrimSpace(ldInfo[i-1]), "(")
+	// if len(parts) > 1 {
+	// targetParts := strings.Split(strings.Trim(parts[1], " "), ":")
+	// if len(targetParts) > 1 {
+	// targetId = strings.Trim(targetParts[1], " )")
+	// }
+	// }
+	// }
+	//
+	// 确保不越界
+	// if i+1 < len(ldInfo) {
+	// 获取 sequenceNum，假设它在 _wwn 行的下一行
+	// sequenceParts := strings.Split(ldInfo[i+1], ":")
+	// if len(sequenceParts) > 1 {
+	// sequenceNum = strings.TrimSpace(sequenceParts[1])
+	// }
+	// }
+	//
+	// 如果 targetId 和 sequenceNum 都找到了，执行查找
+	// if targetId != "" && sequenceNum != "" {
+	// disk.Name = strings.Trim(Bash(fmt.Sprintf(
+	// `ls -l /dev/disk/by-path/ | grep -E "pci-0000:%s:00.0-scsi-[0-9]:%s:%s:[0-9] " | awk -F/ '{print $NF}'`,
+	// busNumber, sequenceNum, targetId)), "\n")
+	// }
+	// }
+	// }
 
 	if disk.Name == "" {
 		disk.Name = "Nil"
