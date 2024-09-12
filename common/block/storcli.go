@@ -134,6 +134,10 @@ func (m *storcliCollector) Collect() []Disk {
 	for i := 0; i < len(pdcesArray); i++ {
 		s = append(s, <-results)
 	}
+	nvmes := Nvme()
+	if len(nvmes) > 0 {
+		s = append(s, nvmes...)
+	}
 	return s
 }
 

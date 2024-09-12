@@ -29,7 +29,7 @@ func PathExists(path string) bool {
 }
 
 func bash(cmd string) string {
-	cmdjob := exec.Command("/bin/sh", "-c", cmd)
+	cmdjob := exec.Command("/bin/bash", "-c", cmd)
 	var stdout, stderr bytes.Buffer
 	cmdjob.Stdout = &stdout
 	cmdjob.Stderr = &stderr
@@ -51,14 +51,15 @@ func ChooseTool(c string) string {
 		"LSI Logic / Symbios Logic MegaRAID SAS-3 3316",
 		"Broadcom / LSI MegaRAID SAS-3 3316",
 		"Broadcom / LSI MegaRAID Tri-Mode SAS3508",
-		"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3508",
 		"LSI Logic / Symbios Logic MegaRAID SAS 2008",
 		"Broadcom / LSI MegaRAID SAS 2208",
 		"Broadcom / LSI MegaRAID SAS-3 3108":
 		t = `/opt/MegaRAID/MegaCli/MegaCli64`
 	case "Broadcom / LSI SAS3008 PCI-Express Fusion-MPT SAS-3",
 		"LSI Logic / Symbios Logic SAS3008 PCI-Express Fusion-MPT SAS-3",
+		"Broadcom / LSI MegaRAID Tri-Mode SAS3408",
 		"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3408",
+		"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3508",
 		"Broadcom / LSI MegaRAID 12GSAS/PCIe Secure SAS39xx":
 		t = `/opt/MegaRAID/storcli/storcli64`
 	case "Adaptec Series 8 12G SAS/PCIe 3",
@@ -75,7 +76,9 @@ func checkTool(t string) bool {
 }
 
 func Collect() Crontroller {
-	c := bash(`lspci | grep "^[0-9,a-z]" | grep -E 'Fusion-MPT|MegaRAID|Adaptec' | awk -F ':' '{print $NF}' | awk -F '[(|[]' '{print $1}' | awk '{gsub(/^\s+|\s+$/, "");print}' | uniq`)
+	output := bash(`lspci | grep "^[0-9,a-z]" | grep -E 'Fusion-MPT|MegaRAID|Adaptec' | awk -F ':' '{print $NF}' | awk -F '[(|[]' '{print $1}' | uniq`)
+	c := strings.TrimSpace(output)
+
 	t := ChooseTool(c)
 	var cnum string
 	switch t {
