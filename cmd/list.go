@@ -33,10 +33,10 @@ func showBlock(form string) string {
 	if form == "" {
 		t := table.NewWriter()
 		t.SetOutputMirror(os.Stdout)
-		t.AppendHeader(table.Row{"Disk", "SN", "Capacity", "Vendor", "PDType", "MediaType", "Slot", "State", "MediaError", "PredictError"})
+		t.AppendHeader(table.Row{"Disk", "SN", "Capacity", "Vendor", "Model", "PDType", "MediaType", "Slot", "State", "MediaError", "PredictError"})
 		t.AppendSeparator()
 		for i := 0; i < len(devices); i++ {
-			t.AppendRow(table.Row{devices[i].Name, devices[i].SerialNumber, devices[i].Capacity, devices[i].Vendor, devices[i].PDType, devices[i].MediaType, devices[i].CES, devices[i].State, devices[i].MediaError, devices[i].PredictError})
+			t.AppendRow(table.Row{devices[i].Name, devices[i].SerialNumber, devices[i].Capacity, devices[i].Vendor, devices[i].Model, devices[i].PDType, devices[i].MediaType, devices[i].CES, devices[i].State, devices[i].MediaError, devices[i].PredictError})
 		}
 		t.SetStyle(table.StyleLight)
 		t.SortBy([]table.SortBy{

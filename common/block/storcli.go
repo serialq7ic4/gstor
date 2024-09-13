@@ -63,7 +63,13 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		case strings.Contains(v, "SN ="):
 			disk.SerialNumber = strings.Trim(strings.Split(v, "=")[1], " ")
 		case strings.Contains(v, "Model Number"):
-			disk.Vendor = strings.Split(strings.Trim(strings.Split(v, "=")[1], " "), " ")[0]
+			parts := strings.Split(strings.Trim(strings.Split(v, "=")[1], " "), " ")
+			disk.Vendor = parts[0]
+			if len(parts) > 1 {
+				disk.Model = parts[1]
+			} else {
+				disk.Model = disk.Vendor
+			}
 		case strings.Contains(v, "Raw size"):
 			sectors := strings.Split(strings.Trim(strings.Split(strings.Trim(strings.Split(v, "[")[1], " "), " ")[0], " "), " ")[0]
 			blocks, _ := strconv.ParseInt(sectors, 0, 64)
@@ -92,16 +98,16 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		disk.Vendor = strings.Trim(strings.Split(strings.Trim(strings.Split(model, ":")[1], " "), " ")[0], " ")
 	}
 
-	if strings.HasPrefix(disk.Vendor, "ST") {
+	if strings.HasPrefix(strings.ToUpper(disk.Vendor), "ST") {
 		disk.Vendor = "SEAGATE"
 	}
 
-	if strings.HasPrefix(disk.Vendor, "HUS") {
+	if strings.HasPrefix(strings.ToUpper(disk.Vendor), "HU") {
 		disk.Vendor = "HGST"
 	}
 
-	if strings.HasPrefix(disk.Vendor, "MICRON") {
-		disk.Vendor = "Micron"
+	if strings.HasPrefix(strings.ToUpper(disk.Vendor), "MICRON") {
+		disk.Vendor = "MICRON"
 	}
 
 	// fmt.Printf("Device %s done\n", id)

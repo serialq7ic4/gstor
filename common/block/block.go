@@ -17,6 +17,7 @@ type Disk struct {
 	MediaError   string `json:"mediaerror"`
 	PredictError string `json:"predicterror"`
 	Vendor       string `json:"vendor"`
+	Model        string `json:"model"`
 	Capacity     string `json:"capcity"`
 	SerialNumber string `json:"serialnumber"`
 }

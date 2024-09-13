@@ -87,7 +87,13 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		case strings.Contains(v, "Vendor"):
 			disk.Vendor = strings.Trim(strings.Split(v, ":")[1], " ")
 		case strings.Contains(v, "Device Model"):
-			disk.Vendor = strings.Split(strings.Trim(strings.Split(v, ":")[1], " "), " ")[0]
+			parts := strings.Split(strings.Trim(strings.Split(v, ":")[1], " "), " ")
+			disk.Vendor = parts[0]
+			if len(parts) > 1 {
+				disk.Model = parts[1]
+			} else {
+				disk.Model = disk.Vendor
+			}
 		case strings.Contains(v, "User Capacity"):
 			disk.Capacity = strings.Replace(strings.Split(strings.Trim(strings.Split(v, "[")[1], " "), "]")[0], ".00 ", " ", -1)
 		case strings.Contains(strings.ToLower(v), strings.ToLower("Serial Number")):
@@ -95,15 +101,15 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		}
 	}
 
-	if strings.HasPrefix(disk.Vendor, "ST") {
+	if strings.HasPrefix(strings.ToUpper(disk.Vendor), "ST") {
 		disk.Vendor = "SEAGATE"
 	}
 
-	if strings.HasPrefix(disk.Vendor, "HUS") {
+	if strings.HasPrefix(strings.ToUpper(disk.Vendor), "HU") {
 		disk.Vendor = "HGST"
 	}
 
-	if strings.HasPrefix(disk.Vendor, "MICRON") {
+	if strings.HasPrefix(strings.ToUpper(disk.Vendor), "MICRON") {
 		disk.Vendor = "MICRON"
 	}
 
@@ -152,41 +158,6 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 			}
 		}
 	}
-
-	// for i, v := range ldInfo {
-	// var targetId, sequenceNum string
-	//
-	// 如果当前行包含 _wwn，则在前后行查找 targetId 和 sequenceNum
-	// if strings.Contains(v, _wwn) {
-	// 确保不越界
-	// if i > 0 {
-	// 获取 targetId，假设它在 _wwn 行的前一行
-	// parts := strings.Split(strings.TrimSpace(ldInfo[i-1]), "(")
-	// if len(parts) > 1 {
-	// targetParts := strings.Split(strings.Trim(parts[1], " "), ":")
-	// if len(targetParts) > 1 {
-	// targetId = strings.Trim(targetParts[1], " )")
-	// }
-	// }
-	// }
-	//
-	// 确保不越界
-	// if i+1 < len(ldInfo) {
-	// 获取 sequenceNum，假设它在 _wwn 行的下一行
-	// sequenceParts := strings.Split(ldInfo[i+1], ":")
-	// if len(sequenceParts) > 1 {
-	// sequenceNum = strings.TrimSpace(sequenceParts[1])
-	// }
-	// }
-	//
-	// 如果 targetId 和 sequenceNum 都找到了，执行查找
-	// if targetId != "" && sequenceNum != "" {
-	// disk.Name = strings.Trim(Bash(fmt.Sprintf(
-	// `ls -l /dev/disk/by-path/ | grep -E "pci-0000:%s:00.0-scsi-[0-9]:%s:%s:[0-9] " | awk -F/ '{print $NF}'`,
-	// busNumber, sequenceNum, targetId)), "\n")
-	// }
-	// }
-	// }
 
 	if disk.Name == "" {
 		disk.Name = "Nil"
