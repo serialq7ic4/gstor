@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/chenq7an/gstor/common/controller"
 	"github.com/spf13/cobra"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -59,6 +60,11 @@ func initConfig() {
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
+
+	// Set default values from ToolMap
+	for name, tool := range controller.ToolMap {
+		viper.SetDefault("tools."+name, tool)
+	}
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {

@@ -1,3 +1,4 @@
 .build/
 MegaSAS.log
 .DS_Store
+go.sum

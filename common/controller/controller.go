@@ -42,33 +42,38 @@ func bash(cmd string) string {
 	return strings.Replace(outStr, "\n", "", -1)
 }
 
+const (
+	megacliPath = "/opt/MegaRAID/MegaCli/MegaCli64"
+	storcliPath = "/opt/MegaRAID/storcli/storcli64"
+	arcconfPath = "/usr/sbin/arcconf"
+	unknownTool = "unknown"
+)
+
+var ToolMap = map[string]string{
+	"LSI Logic / Symbios Logic MegaRAID SAS 2208":                    megacliPath,
+	"LSI Logic / Symbios Logic MegaRAID SAS-3 3008":                  megacliPath,
+	"LSI Logic / Symbios Logic MegaRAID SAS-3 3316":                  megacliPath,
+	"Broadcom / LSI MegaRAID SAS-3 3316":                             megacliPath,
+	"LSI Logic / Symbios Logic MegaRAID SAS 2008":                    megacliPath,
+	"Broadcom / LSI MegaRAID SAS 2208":                               megacliPath,
+	"Broadcom / LSI MegaRAID SAS-3 3108":                             megacliPath,
+	"Broadcom / LSI SAS3008 PCI-Express Fusion-MPT SAS-3":            storcliPath,
+	"LSI Logic / Symbios Logic SAS3008 PCI-Express Fusion-MPT SAS-3": storcliPath,
+	"Broadcom / LSI MegaRAID Tri-Mode SAS3408":                       storcliPath,
+	"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3408":            storcliPath,
+	"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3508":            storcliPath,
+	"Broadcom / LSI MegaRAID Tri-Mode SAS3508":                       storcliPath,
+	"Broadcom / LSI MegaRAID 12GSAS/PCIe Secure SAS39xx":             storcliPath,
+	"Adaptec Series 8 12G SAS/PCIe 3":                                arcconfPath,
+	"Adaptec Smart Storage PQI SAS":                                  arcconfPath,
+	"Adaptec Device 028f":                                            arcconfPath,
+}
+
 func ChooseTool(c string) string {
-	var t string
-	switch c {
-	case "LSI Logic / Symbios Logic MegaRAID SAS 2208",
-		"LSI Logic / Symbios Logic MegaRAID SAS-3 3008",
-		"LSI Logic / Symbios Logic MegaRAID SAS-3 3108",
-		"LSI Logic / Symbios Logic MegaRAID SAS-3 3316",
-		"Broadcom / LSI MegaRAID SAS-3 3316",
-		"Broadcom / LSI MegaRAID Tri-Mode SAS3508",
-		"LSI Logic / Symbios Logic MegaRAID SAS 2008",
-		"Broadcom / LSI MegaRAID SAS 2208",
-		"Broadcom / LSI MegaRAID SAS-3 3108":
-		t = `/opt/MegaRAID/MegaCli/MegaCli64`
-	case "Broadcom / LSI SAS3008 PCI-Express Fusion-MPT SAS-3",
-		"LSI Logic / Symbios Logic SAS3008 PCI-Express Fusion-MPT SAS-3",
-		"Broadcom / LSI MegaRAID Tri-Mode SAS3408",
-		"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3408",
-		"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3508",
-		"Broadcom / LSI MegaRAID 12GSAS/PCIe Secure SAS39xx":
-		t = `/opt/MegaRAID/storcli/storcli64`
-	case "Adaptec Series 8 12G SAS/PCIe 3",
-		"Adaptec Device 028f":
-		t = `/usr/sbin/arcconf`
-	default:
-		t = "unknown"
+	if tool, exists := ToolMap[c]; exists {
+		return tool
 	}
-	return t
+	return unknownTool
 }
 
 func checkTool(t string) bool {

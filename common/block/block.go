@@ -6,7 +6,12 @@ import (
 	"os/exec"
 
 	"github.com/chenq7an/gstor/common/controller"
+	"github.com/spf13/viper"
 )
+
+func init() {
+	viper.AutomaticEnv()
+}
 
 type Disk struct {
 	Name         string `json:"name"`
@@ -44,11 +49,14 @@ func Bash(cmd string) string {
 }
 
 func Devices() (DiskCollector, error) {
-	c := controller.Collect()
-	// if viper.Get("cli") != "" {
-	// c.Tool = viper.GetString("cli")
-	// }
-	switch c.Tool {
+	// 优先使用配置文件中的工具路径
+	tool := viper.GetString("controller.tool")
+	if tool == "" {
+		c := controller.Collect()
+		tool = c.Tool
+	}
+
+	switch tool {
 	case "/opt/MegaRAID/MegaCli/MegaCli64":
 		return &megacliCollector{}, nil
 	case "/opt/MegaRAID/storcli/storcli64":
