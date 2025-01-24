@@ -1,6 +1,7 @@
 package block
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/chenq7an/gstor/common/controller"
+	"github.com/tidwall/gjson"
 )
 
 type storcliCollector struct{}
@@ -39,12 +41,21 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	disk := Disk{Name: "sdb", CES: id}
 	// 从阵列卡 Pdinfo 中抓取的信息
 	cmd := fmt.Sprintf(`%s /c%s/e%s/s%s show all`, tool, cid, eid, sid)
+	vdcmd := fmt.Sprintf(`%s /c%s/vall show all J`, tool, cid)
 	if eid == "" {
 		cmd = fmt.Sprintf(`%s /c%s/s%s show all`, tool, cid, sid)
 	}
 	storcliInfo := Bash(cmd)
+	storcliVDInfo := Bash(vdcmd)
 
 	pdInfo := strings.Split(strings.Trim(storcliInfo, "\n"), "\n")
+	// 解析 JSON 数据
+	var vdInfo map[string]interface{}
+	err := json.Unmarshal([]byte(storcliVDInfo), &vdInfo)
+	if err != nil {
+		fmt.Println("Error parsing JSON:", err)
+		return
+	}
 
 	for _, v := range pdInfo {
 		switch {
@@ -77,8 +88,45 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		}
 	}
 
+	targetEIDSlt := fmt.Sprintf("%s:%s", eid, sid)
 	if disk.State == "Onln" {
-		disk.Name = strings.Trim(Bash(`mount | grep "/boot " | awk '{print $1}' | awk -F/ '{print $NF}' | sed 's/[0-9]$//g'`), "\n")
+		// 使用 GJSON 查询符合条件的 PD，并获取对应的 VD ID
+		controllers := gjson.Get(storcliVDInfo, "Controllers.#.Response Data")
+		var vdID string
+		var scsiNaaIdStr string
+		controllers.ForEach(func(key, value gjson.Result) bool {
+			value.ForEach(func(k, v gjson.Result) bool {
+				if v.IsArray() {
+					v.ForEach(func(_, pd gjson.Result) bool {
+						if pd.Get("EID:Slt").String() == targetEIDSlt {
+							// 查找对应的 VD ID
+							vdID = strings.ReplaceAll(strings.TrimPrefix(k.String(), "PDs for "), " ", "")
+							return false
+						}
+						return true
+					})
+				}
+				return true
+			})
+			return true
+		})
+		// 如果找到 VD ID，则查询对应的 SCSI NAA Id
+		if vdID != "" {
+			scsiNaaPath := fmt.Sprintf(`Controllers.#.Response Data.%s Properties.SCSI NAA Id`, vdID)
+			scsiNaaId := gjson.Get(storcliVDInfo, scsiNaaPath).Array()
+			// 将 SCSI NAA Id 转换为字符串
+			if len(scsiNaaId) > 0 {
+				scsiNaaIdStr = scsiNaaId[0].String()
+				disk.Name = strings.Trim(Bash(fmt.Sprintf(
+					`ls -l /dev/disk/by-id/ | grep "%s" | grep -v part | awk -F/ '{print $NF}' | sort | uniq`,
+					scsiNaaIdStr)), "\n")
+			} else {
+				fmt.Println("No SCSI NAA Id found")
+			}
+		} else {
+			// 兼容 3008 不支持看vd
+			disk.Name = "sda"
+		}
 	} else {
 		lsblkInfoSection := Bash(fmt.Sprintf(`lsblk -o KNAME,MODEL,SERIAL,TYPE | grep disk | grep ^sd[a-z] | grep -v %s`, disk.Name))
 

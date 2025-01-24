@@ -21,7 +21,6 @@ func extractPCIID(path string) string {
 // 获取指定PCI设备的Physical Slot信息
 func getPhysicalSlot(pciID string) (string, error) {
 	// 执行lspci命令
-	fmt.Println(pciID)
 	lspciInfoSection := Bash(fmt.Sprintf(`lspci -vvs %s | grep "Physical Slot" | awk '{print $NF}'`, pciID))
 	phyid := strings.Trim(lspciInfoSection, "\n")
 	return phyid, nil
