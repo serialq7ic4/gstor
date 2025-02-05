@@ -1,98 +1,230 @@
 package cmd
 
 import (
-	"embed"
-	"encoding/json"
 	"fmt"
-	"html/template"
-	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"os"
-	"path/filepath"
+	"text/template"
 
 	"github.com/chenq7an/gstor/common/block"
-	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 )
 
-func getCurrentPath() string {
-	if ex, err := os.Executable(); err == nil {
-		return filepath.Dir(ex)
-	}
-	return "./"
+var serverCmd = &cobra.Command{
+	Use:   "server",
+	Short: "Start web server to display command results",
+	Run: func(cmd *cobra.Command, args []string) {
+		port, _ := cmd.Flags().GetInt("port")
+		startServer(port)
+	},
 }
 
-// serverCmd represents the server command
-var (
-	port      string
-	f         embed.FS
-	serverCmd = &cobra.Command{
-		Use:   "server",
-		Short: "启动http服务,使用方法: gstor server --port=?",
-		Run: func(cmd *cobra.Command, args []string) {
-			if port == "" {
-				fmt.Println("port不能为空")
-				os.Exit(1)
-			}
-			r := gin.Default()
-			// r.LoadHTMLFiles("./templates/dashboard.tmpl")
-			r.GET("/", func(c *gin.Context) {
-				tmpl := template.New("")
-				resp, err := http.Get("https://oss-beijing-m8.openstorage.cn/cephstuff/dashboard.tmpl")
-				if err != nil {
-					c.String(http.StatusInternalServerError, "Failed to load remote HTML file")
-					return
-				}
-				defer resp.Body.Close()
+func init() {
+	serverCmd.Flags().IntP("port", "p", 9100, "Port to listen on")
+	rootCmd.AddCommand(serverCmd)
+}
 
-				bodyBytes, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					c.String(http.StatusInternalServerError, "Failed to read remote HTML file")
-					return
-				}
+func startServer(port int) {
+	http.HandleFunc("/disks", func(w http.ResponseWriter, r *http.Request) {
+		data := getCommandResults()
+		renderTable(w, data)
+	})
 
-				// 将字节数组转换为字符串类型
-				bodyString := string(bodyBytes)
+	http.HandleFunc("/disks/locate/on/", func(w http.ResponseWriter, r *http.Request) {
+		slot := r.URL.Path[len("/locate/on/"):]
+		disk, err := block.Devices()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		err = disk.TurnOn(slot)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write([]byte("OK"))
+	})
 
-				_, err = tmpl.Parse(bodyString)
-				if err != nil {
-					c.String(http.StatusInternalServerError, "Failed to parse remote HTML file")
-					return
-				}
+	http.HandleFunc("/disks/locate/off/", func(w http.ResponseWriter, r *http.Request) {
+		slot := r.URL.Path[len("/locate/off/"):]
+		disk, err := block.Devices()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		err = disk.TurnOff(slot)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write([]byte("OK"))
+	})
 
-				var disk []block.Disk
-				data := showBlock("json")
-				if err := json.Unmarshal([]byte(data), &disk); err != nil {
-					fmt.Println("解析 JSON 失败：", err)
-					return
-				}
-				err = tmpl.Execute(c.Writer, data)
-				if err != nil {
-					c.String(http.StatusInternalServerError, "Failed to render remote HTML file")
-					return
-				}
-				// c.HTML(http.StatusOK, "dashboard.tmpl", gin.H{"disks": disk})
-			})
-			r.GET("/disks", func(c *gin.Context) {
-				ret := showBlock("json")
-				c.JSON(200, gin.H{"disks": ret})
-			})
-			_ = r.Run(":" + port)
+	// Create reverse proxy to handle requests
+	proxy := &httputil.ReverseProxy{
+		Director: func(req *http.Request) {
+			req.URL.Scheme = "http"
+			req.URL.Host = req.Host
 		},
 	}
-)
 
-func init() {
-	rootCmd.AddCommand(serverCmd)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/disks", func(w http.ResponseWriter, r *http.Request) {
+		data := getCommandResults()
+		renderTable(w, data)
+	})
+	mux.HandleFunc("/disks/locate/on/", func(w http.ResponseWriter, r *http.Request) {
+		slot := r.URL.Path[len("/disks/locate/on/"):]
+		disk, err := block.Devices()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		err = disk.TurnOn(slot)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write([]byte("OK"))
+	})
+	mux.HandleFunc("/disks/locate/off/", func(w http.ResponseWriter, r *http.Request) {
+		slot := r.URL.Path[len("/disks/locate/off/"):]
+		disk, err := block.Devices()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		err = disk.TurnOff(slot)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write([]byte("OK"))
+	})
 
-	// Here you will define your flags and configuration settings.
+	// Handle all other requests with reverse proxy
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		proxy.ServeHTTP(w, r)
+	})
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// serverCmd.PersistentFlags().String("foo", "", "A help for foo")
+	server := &http.Server{
+		Addr:    fmt.Sprintf("0.0.0.0:%d", port),
+		Handler: mux,
+	}
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// serverCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	serverCmd.Flags().StringVar(&port, "port", "", "端口号")
+	fmt.Printf("Starting server at http://%s\n", server.Addr)
+	if err := server.ListenAndServe(); err != nil {
+		fmt.Println("Error starting server:", err)
+		os.Exit(1)
+	}
+}
+
+func getCommandResults() []map[string]string {
+	disk, err := block.Devices()
+	if err != nil {
+		return []map[string]string{
+			{"Error": err.Error()},
+		}
+	}
+
+	devices := disk.Collect()
+	var results []map[string]string
+
+	for _, device := range devices {
+		results = append(results, map[string]string{
+			"Disk":         device.Name,
+			"SN":           device.SerialNumber,
+			"Capacity":     device.Capacity,
+			"Vendor":       device.Vendor,
+			"Model":        device.Model,
+			"PDType":       device.PDType,
+			"MediaType":    device.MediaType,
+			"Slot":         device.CES,
+			"State":        device.State,
+			"MediaError":   fmt.Sprintf("%v", device.MediaError),
+			"PredictError": fmt.Sprintf("%v", device.PredictError),
+		})
+	}
+
+	return results
+}
+
+func renderTable(w http.ResponseWriter, data []map[string]string) {
+	const tpl = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Command Results</title>
+    <style>
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        tr:hover {background-color:#f5f5f5;}
+        .error-row {background-color: orange;}
+    </style>
+</head>
+<body>
+    <h1>Command Results</h1>
+    <table>
+        <tr>
+            <th>Disk</th>
+            <th>SN</th>
+            <th>Capacity</th>
+            <th>Vendor</th>
+            <th>Model</th>
+            <th>PDType</th>
+            <th>MediaType</th>
+            <th>Slot</th>
+            <th>State</th>
+            <th>MediaError</th>
+            <th>PredictError</th>
+            <th>Locate On</th>
+            <th>Locate Off</th>
+        </tr>
+        {{range .}}<tr {{if or (ne .MediaError "0") (ne .PredictError "0")}}class="error-row"{{end}}>
+            <td>{{.Disk}}</td>
+            <td>{{.SN}}</td>
+            <td>{{.Capacity}}</td>
+            <td>{{.Vendor}}</td>
+            <td>{{.Model}}</td>
+            <td>{{.PDType}}</td>
+            <td>{{.MediaType}}</td>
+            <td>{{.Slot}}</td>
+            <td>{{.State}}</td>
+            <td>{{.MediaError}}</td>
+            <td>{{.PredictError}}</td>
+            <td>
+                <button onclick="locateOn('{{.Slot}}')">Locate On</button>
+            </td>
+            <td>
+                <button onclick="locateOff('{{.Slot}}')">Locate Off</button>
+            </td>
+        </tr>{{end}}
+    </table>
+    <script>
+        function locateOn(slot) {
+            fetch('/disks/locate/on/' + slot)
+                .then(response => response.text())
+                .then(data => alert(data))
+                .catch(error => alert('Error: ' + error));
+        }
+        function locateOff(slot) {
+            fetch('/disks/locate/off/' + slot)
+                .then(response => response.text())
+                .then(data => alert(data))
+                .catch(error => alert('Error: ' + error));
+        }
+    </script>
+</body>
+</html>`
+
+	tmpl, err := template.New("webpage").Parse(tpl)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := tmpl.Execute(w, data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }

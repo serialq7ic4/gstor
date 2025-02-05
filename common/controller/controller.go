@@ -52,6 +52,7 @@ const (
 var ToolMap = map[string]string{
 	"LSI Logic / Symbios Logic MegaRAID SAS 2208":                    megacliPath,
 	"LSI Logic / Symbios Logic MegaRAID SAS-3 3008":                  megacliPath,
+	"LSI Logic / Symbios Logic MegaRAID SAS-3 3108":                  megacliPath,
 	"LSI Logic / Symbios Logic MegaRAID SAS-3 3316":                  megacliPath,
 	"Broadcom / LSI MegaRAID SAS-3 3316":                             megacliPath,
 	"LSI Logic / Symbios Logic MegaRAID SAS 2008":                    megacliPath,

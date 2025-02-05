@@ -94,6 +94,8 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 			} else {
 				disk.Model = disk.Vendor
 			}
+		case strings.Contains(v, "Product"):
+			disk.Model = strings.Trim(strings.Split(v, ":")[1], " ")
 		case strings.Contains(v, "User Capacity"):
 			disk.Capacity = strings.Replace(strings.Split(strings.Trim(strings.Split(v, "[")[1], " "), "]")[0], ".00 ", " ", -1)
 		case strings.Contains(strings.ToLower(v), strings.ToLower("Serial Number")):
