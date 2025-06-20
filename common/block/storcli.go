@@ -38,7 +38,7 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	eid := strings.Split(id, ":")[1]
 	sid := strings.Split(id, ":")[2]
 
-	disk := Disk{Name: "sdb", CES: id}
+	disk := Disk{Name: "", CES: id}
 	// 从阵列卡 Pdinfo 中抓取的信息
 	cmd := fmt.Sprintf(`%s /c%s/e%s/s%s show all`, tool, cid, eid, sid)
 	vdcmd := fmt.Sprintf(`%s /c%s/vall show all J`, tool, cid)
@@ -128,7 +128,7 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 			disk.Name = "sda"
 		}
 	} else {
-		lsblkInfoSection := Bash(fmt.Sprintf(`lsblk -o KNAME,MODEL,SERIAL,TYPE | grep disk | grep ^sd[a-z] | grep -v %s`, disk.Name))
+		lsblkInfoSection := Bash(`lsblk -o KNAME,MODEL,SERIAL,TYPE | grep disk | grep ^sd[a-z] | grep -vi "logical"`)
 
 		lsblkInfo := strings.Split(strings.Trim(lsblkInfoSection, "\n"), "\n")
 
@@ -142,8 +142,12 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	}
 
 	if disk.Vendor == "" {
-		model := Bash(fmt.Sprintf(`smartctl -i /dev/%s | egrep "Device Model|Vendor"`, disk.Name))
-		disk.Vendor = strings.Trim(strings.Split(strings.Trim(strings.Split(model, ":")[1], " "), " ")[0], " ")
+		if disk.Name != "" {
+			model := Bash(fmt.Sprintf(`smartctl -i /dev/%s | egrep "Device Model|Vendor"`, disk.Name))
+			disk.Vendor = strings.Trim(strings.Split(strings.Trim(strings.Split(model, ":")[1], " "), " ")[0], " ")
+		} else {
+			disk.Vendor = "unknown"
+		}
 	}
 
 	if strings.HasPrefix(strings.ToUpper(disk.Vendor), "ST") {

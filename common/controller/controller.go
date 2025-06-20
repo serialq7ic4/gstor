@@ -51,6 +51,7 @@ const (
 
 var ToolMap = map[string]string{
 	"LSI Logic / Symbios Logic MegaRAID SAS 2208":                    megacliPath,
+	"Broadcom / LSI MegaRAID SAS-3 3008":                             megacliPath,
 	"LSI Logic / Symbios Logic MegaRAID SAS-3 3008":                  megacliPath,
 	"LSI Logic / Symbios Logic MegaRAID SAS-3 3108":                  megacliPath,
 	"LSI Logic / Symbios Logic MegaRAID SAS-3 3316":                  megacliPath,
@@ -89,7 +90,7 @@ func Collect() Crontroller {
 	var cnum string
 	switch t {
 	case "/opt/MegaRAID/MegaCli/MegaCli64":
-		cnum = bash(fmt.Sprintf(`%s -adpCount | grep Count | awk '{print $3}' | awk -F. '{print $1}'`, t))
+		cnum = bash(fmt.Sprintf(`%s -adpCount -NoLog | grep Count | awk '{print $3}' | awk -F. '{print $1}'`, t))
 	case "/opt/MegaRAID/storcli/storcli64":
 		cnum = bash(fmt.Sprintf(`%s show | grep "Number of Controllers" | awk '{print $NF}'`, t))
 	case "/usr/sbin/arcconf":
