@@ -25,7 +25,7 @@ func formatDiskSize(kb int) (size string) {
 }
 
 func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
-	tool := "/usr/sbin/arcconf"
+	tool := controller.ArcconfPath
 	defer wg.Done()
 
 	// fmt.Printf("Device %s collecting\n", id)

@@ -18,7 +18,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	var _deviceId string
 	var _wwn string
 
-	tool := "/opt/MegaRAID/MegaCli/MegaCli64"
+	tool := controller.MegacliPath
 	defer wg.Done()
 
 	// fmt.Printf("Device %s collecting\n", id)
@@ -194,10 +194,6 @@ func (m *megacliCollector) Collect() []Disk {
 	wg.Wait()
 	for i := 0; i < len(pdcesArray); i++ {
 		s = append(s, <-results)
-	}
-	nvmes := Nvme()
-	if len(nvmes) > 0 {
-		s = append(s, nvmes...)
 	}
 	return s
 }

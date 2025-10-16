@@ -6,6 +6,23 @@ import (
 	"strings"
 )
 
+// nvmeCollector 实现 DiskCollector 接口
+type nvmeCollector struct{}
+
+func (n *nvmeCollector) Collect() []Disk {
+	return Nvme()
+}
+
+func (n *nvmeCollector) TurnOn(slot string) error {
+	// NVMe 硬盘通常没有 RAID 卡控制的点灯功能
+	return fmt.Errorf("nvme disk %s does not support locate function", slot)
+}
+
+func (n *nvmeCollector) TurnOff(slot string) error {
+	// NVMe 硬盘通常没有 RAID 卡控制的点灯功能
+	return fmt.Errorf("nvme disk %s does not support locate function", slot)
+}
+
 // 从路径中提取最后一个PCI设备ID
 func extractPCIID(path string) string {
 	// 示例路径：../devices/pci0000:10/0000:10:01.2/0000:12:00.0/nvme/nvme0/nvme0n1

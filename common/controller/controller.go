@@ -43,39 +43,39 @@ func bash(cmd string) string {
 }
 
 const (
-	megacliPath = "/opt/MegaRAID/MegaCli/MegaCli64"
-	storcliPath = "/opt/MegaRAID/storcli/storcli64"
-	arcconfPath = "/usr/sbin/arcconf"
-	unknownTool = "unknown"
+	MegacliPath = "/opt/MegaRAID/MegaCli/MegaCli64"
+	StorcliPath = "/opt/MegaRAID/storcli/storcli64"
+	ArcconfPath = "/usr/sbin/arcconf"
+	UnknownTool = "unknown"
 )
 
 var ToolMap = map[string]string{
-	"LSI Logic / Symbios Logic MegaRAID SAS 2208":                    megacliPath,
-	"Broadcom / LSI MegaRAID SAS-3 3008":                             megacliPath,
-	"LSI Logic / Symbios Logic MegaRAID SAS-3 3008":                  megacliPath,
-	"LSI Logic / Symbios Logic MegaRAID SAS-3 3108":                  megacliPath,
-	"LSI Logic / Symbios Logic MegaRAID SAS-3 3316":                  megacliPath,
-	"Broadcom / LSI MegaRAID SAS-3 3316":                             megacliPath,
-	"LSI Logic / Symbios Logic MegaRAID SAS 2008":                    megacliPath,
-	"Broadcom / LSI MegaRAID SAS 2208":                               megacliPath,
-	"Broadcom / LSI MegaRAID SAS-3 3108":                             megacliPath,
-	"Broadcom / LSI SAS3008 PCI-Express Fusion-MPT SAS-3":            storcliPath,
-	"LSI Logic / Symbios Logic SAS3008 PCI-Express Fusion-MPT SAS-3": storcliPath,
-	"Broadcom / LSI MegaRAID Tri-Mode SAS3408":                       storcliPath,
-	"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3408":            storcliPath,
-	"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3508":            storcliPath,
-	"Broadcom / LSI MegaRAID Tri-Mode SAS3508":                       storcliPath,
-	"Broadcom / LSI MegaRAID 12GSAS/PCIe Secure SAS39xx":             storcliPath,
-	"Adaptec Series 8 12G SAS/PCIe 3":                                arcconfPath,
-	"Adaptec Smart Storage PQI SAS":                                  arcconfPath,
-	"Adaptec Device 028f":                                            arcconfPath,
+	"LSI Logic / Symbios Logic MegaRAID SAS 2208":                    MegacliPath,
+	"Broadcom / LSI MegaRAID SAS-3 3008":                             MegacliPath,
+	"LSI Logic / Symbios Logic MegaRAID SAS-3 3008":                  MegacliPath,
+	"LSI Logic / Symbios Logic MegaRAID SAS-3 3108":                  MegacliPath,
+	"LSI Logic / Symbios Logic MegaRAID SAS-3 3316":                  MegacliPath,
+	"Broadcom / LSI MegaRAID SAS-3 3316":                             MegacliPath,
+	"LSI Logic / Symbios Logic MegaRAID SAS 2008":                    MegacliPath,
+	"Broadcom / LSI MegaRAID SAS 2208":                               MegacliPath,
+	"Broadcom / LSI MegaRAID SAS-3 3108":                             MegacliPath,
+	"Broadcom / LSI SAS3008 PCI-Express Fusion-MPT SAS-3":            StorcliPath,
+	"LSI Logic / Symbios Logic SAS3008 PCI-Express Fusion-MPT SAS-3": StorcliPath,
+	"Broadcom / LSI MegaRAID Tri-Mode SAS3408":                       StorcliPath,
+	"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3408":            StorcliPath,
+	"LSI Logic / Symbios Logic MegaRAID Tri-Mode SAS3508":            StorcliPath,
+	"Broadcom / LSI MegaRAID Tri-Mode SAS3508":                       StorcliPath,
+	"Broadcom / LSI MegaRAID 12GSAS/PCIe Secure SAS39xx":             StorcliPath,
+	"Adaptec Series 8 12G SAS/PCIe 3":                                ArcconfPath,
+	"Adaptec Smart Storage PQI SAS":                                  ArcconfPath,
+	"Adaptec Device 028f":                                            ArcconfPath,
 }
 
 func ChooseTool(c string) string {
 	if tool, exists := ToolMap[c]; exists {
 		return tool
 	}
-	return unknownTool
+	return UnknownTool
 }
 
 func checkTool(t string) bool {
@@ -89,11 +89,11 @@ func Collect() Crontroller {
 	t := ChooseTool(c)
 	var cnum string
 	switch t {
-	case "/opt/MegaRAID/MegaCli/MegaCli64":
+	case MegacliPath:
 		cnum = bash(fmt.Sprintf(`%s -adpCount -NoLog | grep Count | awk '{print $3}' | awk -F. '{print $1}'`, t))
-	case "/opt/MegaRAID/storcli/storcli64":
+	case StorcliPath:
 		cnum = bash(fmt.Sprintf(`%s show | grep "Number of Controllers" | awk '{print $NF}'`, t))
-	case "/usr/sbin/arcconf":
+	case ArcconfPath:
 		cnum = bash(fmt.Sprintf(`%s list | grep "Controllers found:" | awk '{print $NF}'`, t))
 	default:
 		cnum = "0"

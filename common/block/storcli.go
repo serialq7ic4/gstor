@@ -29,7 +29,7 @@ func formatBlockSize(block int) (size string) {
 }
 
 func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
-	tool := "/opt/MegaRAID/storcli/storcli64"
+	tool := controller.StorcliPath
 	defer wg.Done()
 
 	// fmt.Printf("Device %s collecting\n", id)
@@ -191,10 +191,6 @@ func (m *storcliCollector) Collect() []Disk {
 	wg.Wait()
 	for i := 0; i < len(pdcesArray); i++ {
 		s = append(s, <-results)
-	}
-	nvmes := Nvme()
-	if len(nvmes) > 0 {
-		s = append(s, nvmes...)
 	}
 	return s
 }
