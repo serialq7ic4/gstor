@@ -104,8 +104,22 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		}
 	}
 
-	targetEIDSlt := fmt.Sprintf("%s:%s", eid, sid)
-	if disk.State == "Onln" {
+	// 获取盘符：优先使用序列号匹配
+	if disk.SerialNumber != "" {
+		lsblkInfoSection := Bash(`lsblk -o KNAME,MODEL,SERIAL,TYPE | grep disk | grep ^sd[a-z] | grep -vi "logical"`)
+		lsblkInfo := strings.Split(strings.Trim(lsblkInfoSection, "\n"), "\n")
+
+		for _, v := range lsblkInfo {
+			if strings.Contains(v, disk.SerialNumber) {
+				disk.Name = strings.Trim(strings.Split(strings.Join(strings.Fields(v), ":"), ":")[0], " ")
+				break
+			}
+		}
+	}
+
+	// 如果序列号匹配失败，且是 Onln 状态，尝试通过 VD 信息获取
+	if disk.Name == "" && disk.State == "Onln" && eid != "" {
+		targetEIDSlt := fmt.Sprintf("%s:%s", eid, sid)
 		// 使用 GJSON 查询符合条件的 PD，并获取对应的 VD ID
 		controllers := gjson.Get(storcliVDInfo, "Controllers.#.Response Data")
 		var vdID string
@@ -136,25 +150,8 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 				disk.Name = strings.Trim(Bash(fmt.Sprintf(
 					`ls -l /dev/disk/by-id/ | grep "%s" | grep -v part | awk -F/ '{print $NF}' | sort | uniq`,
 					scsiNaaIdStr)), "\n")
-			} else {
-				fmt.Println("No SCSI NAA Id found")
-			}
-		} else {
-			// 兼容 3008 不支持看vd
-			disk.Name = "sda"
-		}
-	} else {
-		lsblkInfoSection := Bash(`lsblk -o KNAME,MODEL,SERIAL,TYPE | grep disk | grep ^sd[a-z] | grep -vi "logical"`)
-
-		lsblkInfo := strings.Split(strings.Trim(lsblkInfoSection, "\n"), "\n")
-
-		for _, v := range lsblkInfo {
-			switch {
-			case strings.Contains(v, disk.SerialNumber):
-				disk.Name = strings.Trim(strings.Split(strings.Join(strings.Fields(v), ":"), ":")[0], " ")
 			}
 		}
-
 	}
 
 	if disk.Vendor == "" {
@@ -189,12 +186,26 @@ func (m *storcliCollector) Collect() []Disk {
 	c := controller.Collect()
 	// fmt.Printf("server have %d controller\n", c.Num)
 	for i := 0; i < c.Num; i++ {
-		output := Bash(fmt.Sprintf(`%s /c%d show | egrep "SSD|HDD" | awk '{print "%d:"$1}' | sort | uniq`, c.Tool, i, i))
-		pdces := strings.Split(strings.Trim(output, "\n"), "\n")
-		// 过滤空字符串
-		for _, pd := range pdces {
-			if pd != "" && strings.Contains(pd, ":") {
-				pdcesArray = append(pdcesArray, pd)
+		// 获取所有 enclosure
+		enclosureOutput := Bash(fmt.Sprintf(`%s /c%d show | grep "^[0-9]" | awk '{print $1}'`, c.Tool, i))
+		enclosures := strings.Split(strings.Trim(enclosureOutput, "\n"), "\n")
+		
+		// 遍历每个 enclosure，获取硬盘列表
+		for _, enc := range enclosures {
+			enc = strings.TrimSpace(enc)
+			if enc == "" {
+				continue
+			}
+			// 获取该 enclosure 下的所有硬盘
+			diskOutput := Bash(fmt.Sprintf(`%s /c%d/e%s/sall show | grep "^%s:" | awk '{print $1}'`, c.Tool, i, enc, enc))
+			disks := strings.Split(strings.Trim(diskOutput, "\n"), "\n")
+			
+			for _, disk := range disks {
+				disk = strings.TrimSpace(disk)
+				if disk != "" && strings.Contains(disk, ":") {
+					// 格式：e:s，需要添加 controller ID
+					pdcesArray = append(pdcesArray, fmt.Sprintf("%d:%s", i, disk))
+				}
 			}
 		}
 	}
