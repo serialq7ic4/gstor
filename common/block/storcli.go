@@ -75,14 +75,22 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	for _, v := range pdInfo {
 		switch {
-		case strings.Contains(v, " SSD "):
-			disk.State = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[2], " ")
-			disk.MediaType = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[7], " ")
-			disk.PDType = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[6], " ")
-		case strings.Contains(v, " HDD "):
-			disk.State = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[2], " ")
-			disk.MediaType = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[7], " ")
-			disk.PDType = strings.Trim(strings.Split(strings.Join(strings.Fields(v), " "), " ")[6], " ")
+		case strings.Contains(v, " SSD ") || strings.Contains(v, " HDD "):
+			// 解析硬盘信息行，格式：EID:Slt DID State DG Size Intf Med SED PI SeSz Model Sp Type
+			fields := strings.Fields(v)
+			if len(fields) >= 8 {
+				disk.State = fields[2]     // State (Onln, Offln, etc.)
+				disk.PDType = fields[5]    // Intf (SATA, SAS, etc.)
+				disk.MediaType = fields[6] // Med (HDD, SSD)
+
+				// 如果最后一列是 JBOD 或 UGood，则使用它作为 State
+				if len(fields) > 0 {
+					lastField := fields[len(fields)-1]
+					if lastField == "JBOD" || lastField == "UGood" || lastField == "UBad" {
+						disk.State = lastField
+					}
+				}
+			}
 		case strings.Contains(v, "Media Error Count"):
 			disk.MediaError = strings.Trim(strings.Split(v, "=")[1], " ")
 		case strings.Contains(v, "Predictive Failure Count"):
@@ -189,7 +197,7 @@ func (m *storcliCollector) Collect() []Disk {
 		// 获取所有 enclosure
 		enclosureOutput := Bash(fmt.Sprintf(`%s /c%d show | grep "^[0-9]" | awk '{print $1}'`, c.Tool, i))
 		enclosures := strings.Split(strings.Trim(enclosureOutput, "\n"), "\n")
-		
+
 		// 遍历每个 enclosure，获取硬盘列表
 		for _, enc := range enclosures {
 			enc = strings.TrimSpace(enc)
@@ -199,7 +207,7 @@ func (m *storcliCollector) Collect() []Disk {
 			// 获取该 enclosure 下的所有硬盘
 			diskOutput := Bash(fmt.Sprintf(`%s /c%d/e%s/sall show | grep "^%s:" | awk '{print $1}'`, c.Tool, i, enc, enc))
 			disks := strings.Split(strings.Trim(diskOutput, "\n"), "\n")
-			
+
 			for _, disk := range disks {
 				disk = strings.TrimSpace(disk)
 				if disk != "" && strings.Contains(disk, ":") {
