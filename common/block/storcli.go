@@ -34,9 +34,25 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	// fmt.Printf("Device %s collecting\n", id)
 
-	cid := strings.Split(id, ":")[0]
-	eid := strings.Split(id, ":")[1]
-	sid := strings.Split(id, ":")[2]
+	// 解析 ID，支持两种格式：c:e:s 和 c:s
+	parts := strings.Split(id, ":")
+	if len(parts) < 2 {
+		fmt.Printf("Invalid device ID format: %s, expected format: c:e:s or c:s\n", id)
+		return
+	}
+
+	var cid, eid, sid string
+	if len(parts) == 2 {
+		// 格式：c:s (没有 enclosure)
+		cid = parts[0]
+		eid = ""
+		sid = parts[1]
+	} else {
+		// 格式：c:e:s
+		cid = parts[0]
+		eid = parts[1]
+		sid = parts[2]
+	}
 
 	disk := Disk{Name: "", CES: id}
 	// 从阵列卡 Pdinfo 中抓取的信息
@@ -175,8 +191,12 @@ func (m *storcliCollector) Collect() []Disk {
 	for i := 0; i < c.Num; i++ {
 		output := Bash(fmt.Sprintf(`%s /c%d show | egrep "SSD|HDD" | awk '{print "%d:"$1}' | sort | uniq`, c.Tool, i, i))
 		pdces := strings.Split(strings.Trim(output, "\n"), "\n")
-		// fmt.Println(pdces)
-		pdcesArray = append(pdcesArray, pdces...)
+		// 过滤空字符串
+		for _, pd := range pdces {
+			if pd != "" && strings.Contains(pd, ":") {
+				pdcesArray = append(pdcesArray, pd)
+			}
+		}
 	}
 
 	results := make(chan Disk, len(pdcesArray))

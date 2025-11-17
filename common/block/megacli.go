@@ -23,9 +23,16 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	// fmt.Printf("Device %s collecting\n", id)
 
-	cid := strings.Split(id, ":")[0]
-	eid := strings.Split(id, ":")[1]
-	sid := strings.Split(id, ":")[2]
+	// 解析 ID，格式：c:e:s
+	parts := strings.Split(id, ":")
+	if len(parts) != 3 {
+		fmt.Printf("Invalid device ID format: %s, expected format: c:e:s\n", id)
+		return
+	}
+
+	cid := parts[0]
+	eid := parts[1]
+	sid := parts[2]
 
 	disk := Disk{CES: id, MediaError: "0", PredictError: "0"}
 	// 从阵列卡 Pdinfo 中抓取的信息
@@ -178,8 +185,12 @@ func (m *megacliCollector) Collect() []Disk {
 	for i := 0; i < c.Num; i++ {
 		output := Bash(fmt.Sprintf(`%s -PDList -a%d | grep -E "Enclosure Device|Slot" | awk 'NR%%2==0{print a":"$NF}{a=$NF}' | awk '{print "%d:"$0}'`, c.Tool, i, i))
 		pdces := strings.Split(strings.Trim(output, "\n"), "\n")
-		// fmt.Println(pdces)
-		pdcesArray = append(pdcesArray, pdces...)
+		// 过滤空字符串和格式不正确的条目
+		for _, pd := range pdces {
+			if pd != "" && strings.Count(pd, ":") == 2 {
+				pdcesArray = append(pdcesArray, pd)
+			}
+		}
 	}
 
 	results := make(chan Disk, len(pdcesArray))
