@@ -6,13 +6,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// 版本信息变量，构建时通过 ldflags 注入
+var (
+	Version   = "dev"     // 版本号，构建时注入
+	BuildTime = "unknown" // 构建时间，构建时注入
+	GitCommit = "unknown" // Git 提交哈希，构建时注入
+)
+
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "版本信息",
-	Long:  `关于版本的长信息`,
+	Long:  `显示版本信息，包括版本号、构建时间和 Git 提交哈希`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("1.4.13")
+		fmt.Printf("Version: %s\n", Version)
+		fmt.Printf("Build Time: %s\n", BuildTime)
+		fmt.Printf("Git Commit: %s\n", GitCommit)
 	},
 }
 

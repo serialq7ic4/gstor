@@ -1,13 +1,12 @@
 package controller
 
 import (
-	"bytes"
 	"fmt"
-	"log"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/chenq7an/gstor/common/utils"
 )
 
 type Controller struct {
@@ -28,18 +27,15 @@ func PathExists(path string) bool {
 	return false
 }
 
-func bash(cmd string) string {
-	cmdjob := exec.Command("/bin/bash", "-c", cmd)
-	var stdout, stderr bytes.Buffer
-	cmdjob.Stdout = &stdout
-	cmdjob.Stderr = &stderr
-	err := cmdjob.Run()
-	outStr, _ := stdout.String(), stderr.String()
-	// fmt.Printf("out:%serr:%s\n", outStr, errStr)
+// bash 执行 shell 命令，使用 /bin/bash
+// 移除所有换行符以保持与原有行为一致
+func bash(cmd string) (string, error) {
+	result, err := utils.ExecShellWithShell(cmd, "/bin/bash")
 	if err != nil {
-		log.Fatalf("cmd.Run() failed with %s\n", err)
+		return "", err
 	}
-	return strings.Replace(outStr, "\n", "", -1)
+	// 移除所有换行符，保持与原有行为一致
+	return strings.ReplaceAll(result, "\n", ""), nil
 }
 
 const (
@@ -83,18 +79,37 @@ func checkTool(t string) bool {
 }
 
 func Collect() Controller {
-	output := bash(`lspci | grep "^[0-9,a-z]" | grep -E 'Fusion-MPT|MegaRAID|Adaptec' | awk -F ':' '{print $NF}' | awk -F '[(|[]' '{print $1}' | uniq`)
+	output, err := bash(`lspci | grep "^[0-9,a-z]" | grep -E 'Fusion-MPT|MegaRAID|Adaptec' | awk -F ':' '{print $NF}' | awk -F '[(|[]' '{print $1}' | uniq`)
+	if err != nil {
+		// 如果命令失败，返回未知工具
+		return Controller{Name: "", Num: 0, Tool: UnknownTool, Avail: false}
+	}
 	c := strings.TrimSpace(output)
 
 	t := ChooseTool(c)
 	var cnum string
 	switch t {
 	case MegacliPath:
-		cnum = bash(fmt.Sprintf(`%s -adpCount -NoLog | grep Count | awk '{print $3}' | awk -F. '{print $1}'`, t))
+		cnumOutput, err := bash(fmt.Sprintf(`%s -adpCount -NoLog | grep Count | awk '{print $3}' | awk -F. '{print $1}'`, t))
+		if err == nil {
+			cnum = cnumOutput
+		} else {
+			cnum = "0"
+		}
 	case StorcliPath:
-		cnum = bash(fmt.Sprintf(`%s show | grep "Number of Controllers" | awk '{print $NF}'`, t))
+		cnumOutput, err := bash(fmt.Sprintf(`%s show | grep "Number of Controllers" | awk '{print $NF}'`, t))
+		if err == nil {
+			cnum = cnumOutput
+		} else {
+			cnum = "0"
+		}
 	case ArcconfPath:
-		cnum = bash(fmt.Sprintf(`%s list | grep "Controllers found:" | awk '{print $NF}'`, t))
+		cnumOutput, err := bash(fmt.Sprintf(`%s list | grep "Controllers found:" | awk '{print $NF}'`, t))
+		if err == nil {
+			cnum = cnumOutput
+		} else {
+			cnum = "0"
+		}
 	default:
 		cnum = "0"
 	}

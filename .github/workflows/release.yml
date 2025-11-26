@@ -13,6 +13,18 @@ jobs:
         goarch: [amd64, arm64]
     steps:
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # 获取完整 git 历史以获取 commit hash
+    - name: Set version info
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        if [ "$VERSION" = "$GITHUB_REF" ]; then
+          VERSION="dev"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "build_time=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+        echo "git_commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
     - uses: wangyoucao577/go-release-action@v1.35
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -22,3 +34,4 @@ jobs:
         project_path: "."
         binary_name: "gstor"
         extra_files: LICENSE README.md
+        ldflags: "-X github.com/chenq7an/gstor/cmd.Version=${{ steps.version.outputs.version }} -X github.com/chenq7an/gstor/cmd.BuildTime=${{ steps.version.outputs.build_time }} -X github.com/chenq7an/gstor/cmd.GitCommit=${{ steps.version.outputs.git_commit }}"

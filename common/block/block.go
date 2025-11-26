@@ -1,11 +1,10 @@
 package block
 
 import (
-	"bytes"
 	"fmt"
-	"os/exec"
 
 	"github.com/chenq7an/gstor/common/controller"
+	"github.com/chenq7an/gstor/common/utils"
 	"github.com/spf13/viper"
 )
 
@@ -107,19 +106,12 @@ func registerRaidToolAdapters() {
 	RegisterRaidToolAdapter(controller.ArcconfPath, &arcconfAdapter{})
 }
 
+// Bash 执行 shell 命令并返回输出
+// 错误时返回空字符串（为了向后兼容）
+// 新代码应该使用 utils.ExecShell() 来获取错误信息
+// Deprecated: 使用 utils.ExecShell() 替代，以便正确处理错误
 func Bash(cmd string) string {
-	cmdjob := exec.Command("/bin/sh", "-c", cmd)
-	var stdout, stderr bytes.Buffer
-	cmdjob.Stdout = &stdout
-	cmdjob.Stderr = &stderr
-	err := cmdjob.Run()
-	outStr, _ := stdout.String(), stderr.String()
-	// fmt.Printf("out:%serr:%s\n", outStr, errStr)
-	if err != nil {
-		return ""
-		// log.Fatalf("cmd.Run() failed with %s\n", cmd)
-	}
-	return outStr // strings.Split(strings.Trim(outStr, "\n"), "\n")
+	return utils.ExecShellSafe(cmd)
 }
 
 func Devices() (DiskCollector, error) {

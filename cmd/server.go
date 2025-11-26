@@ -15,7 +15,10 @@ var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Start web server to display command results",
 	Run: func(cmd *cobra.Command, args []string) {
-		port, _ := cmd.Flags().GetInt("port")
+		port, err := cmd.Flags().GetInt("port")
+		if err != nil {
+			cobra.CheckErr(fmt.Errorf("failed to get port flag: %w", err))
+		}
 		startServer(port)
 	},
 }
@@ -43,7 +46,10 @@ func startServer(port int) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)
+			return
+		}
 	})
 
 	http.HandleFunc("/disks/locate/off/", func(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +64,10 @@ func startServer(port int) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)
+			return
+		}
 	})
 
 	// Create reverse proxy to handle requests
@@ -86,7 +95,10 @@ func startServer(port int) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)
+			return
+		}
 	})
 	mux.HandleFunc("/disks/locate/off/", func(w http.ResponseWriter, r *http.Request) {
 		slot := r.URL.Path[len("/disks/locate/off/"):]
@@ -100,7 +112,10 @@ func startServer(port int) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)
+			return
+		}
 	})
 
 	// Handle all other requests with reverse proxy

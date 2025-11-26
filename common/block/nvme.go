@@ -76,14 +76,18 @@ func Nvme() []Disk {
 			linkPath := filepath.Join("/sys/block", disk.Name)
 			targetPath, err := filepath.EvalSymlinks(linkPath)
 			if err != nil {
-				fmt.Println("Error evaluating symlink:", err)
+				fmt.Printf("Warning: failed to evaluate symlink %s: %v\n", linkPath, err)
+				disk.CES = "Nil"
+			} else {
+				pciID := extractPCIID(targetPath)
+				physicalSlot, err := getPhysicalSlot(pciID)
+				if err != nil {
+					fmt.Printf("Warning: failed to get Physical Slot for %s: %v\n", pciID, err)
+					disk.CES = "Nil"
+				} else {
+					disk.CES = physicalSlot
+				}
 			}
-			pciID := extractPCIID(targetPath)
-			physicalSlot, err := getPhysicalSlot(pciID)
-			if err != nil {
-				fmt.Println("Error getting Physical Slot:", err)
-			}
-			disk.CES = physicalSlot
 			smartSection := Bash(fmt.Sprintf(`smartctl /dev/%s -A`, disk.Name))
 			smart := strings.Split(strings.Trim(smartSection, "\n"), "\n")
 			for _, x := range smart {

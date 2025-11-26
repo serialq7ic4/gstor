@@ -5,13 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
-	"os"
-	"os/exec"
-	"strings"
 
 	"github.com/chenq7an/gstor/common/block"
+	"github.com/chenq7an/gstor/common/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -43,8 +40,7 @@ var reportCmd = &cobra.Command{
 		var s []string
 		disk, err := block.Devices()
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			cobra.CheckErr(fmt.Errorf("failed to get devices: %w", err))
 		}
 		devices := disk.Collect()
 		for _, v := range devices {
@@ -55,43 +51,48 @@ var reportCmd = &cobra.Command{
 			}
 		}
 		payload.Type = "disk"
-		payload.IP = bash(`route -n | grep ^[0-9] | grep -v docker | grep -v "169.254.0.0" | \
+		ip, err := bash(`route -n | grep ^[0-9] | grep -v docker | grep -v "169.254.0.0" | \
 													awk '{print $NF}' | head -n1 | xargs -i ifconfig {} | grep inet | \
 													grep netmask | grep broadcast | awk '{print $2}'`)
-		payload.SN = bash(`dmidecode -s system-serial-number`)
+		if err != nil {
+			cobra.CheckErr(fmt.Errorf("failed to get IP address: %w", err))
+		}
+		payload.IP = ip
+		sn, err := bash(`dmidecode -s system-serial-number`)
+		if err != nil {
+			cobra.CheckErr(fmt.Errorf("failed to get system serial number: %w", err))
+		}
+		payload.SN = sn
 		payload.Source = "gstor"
 		payload.Message = s
 		jsonPayload, err := json.Marshal(payload)
 		if err != nil {
-			fmt.Println("Json error:", err)
+			cobra.CheckErr(fmt.Errorf("failed to marshal JSON: %w", err))
 		}
 		reader := bytes.NewReader(jsonPayload)
-		request, _ := http.NewRequest("POST", apiUrl, reader)
+		request, err := http.NewRequest("POST", apiUrl, reader)
+		if err != nil {
+			cobra.CheckErr(fmt.Errorf("failed to create HTTP request: %w", err))
+		}
 		request.Header.Set("Content-Type", "application/json; charset=UTF-8")
 		client := &http.Client{}
-		response, error := client.Do(request)
-		if error != nil {
-			panic(error)
+		response, err := client.Do(request)
+		if err != nil {
+			cobra.CheckErr(fmt.Errorf("failed to send HTTP request: %w", err))
 		}
 		defer response.Body.Close()
 		fmt.Println("response Status:", response.Status)
-		body, _ := io.ReadAll(response.Body)
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			cobra.CheckErr(fmt.Errorf("failed to read response body: %w", err))
+		}
 		fmt.Println("response Body:", string(body))
 	},
 }
 
-func bash(cmd string) string {
-	cmdjob := exec.Command("/bin/sh", "-c", cmd)
-	var stdout, stderr bytes.Buffer
-	cmdjob.Stdout = &stdout
-	cmdjob.Stderr = &stderr
-	err := cmdjob.Run()
-	outStr, _ := stdout.String(), stderr.String()
-	// fmt.Printf("out:%serr:%s\n", outStr, errStr)
-	if err != nil {
-		log.Fatalf("%s failed with %s\n", cmd, err)
-	}
-	return strings.Replace(outStr, "\n", "", -1)
+// bash 执行 shell 命令
+func bash(cmd string) (string, error) {
+	return utils.ExecShell(cmd)
 }
 
 func init() {

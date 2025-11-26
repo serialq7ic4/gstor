@@ -17,7 +17,10 @@ var listCmd = &cobra.Command{
 	Short: "罗列出硬盘基本信息",
 	Long:  `基于存储控制器展示硬盘诸如盘符、在控制器上的ces信息及硬盘状态等`,
 	Run: func(cmd *cobra.Command, args []string) {
-		form, _ := cmd.Flags().GetString("format")
+		form, err := cmd.Flags().GetString("format")
+		if err != nil {
+			cobra.CheckErr(fmt.Errorf("failed to get format flag: %w", err))
+		}
 		_ = showBlock(form)
 	},
 }
@@ -52,7 +55,7 @@ func showBlock(form string) string {
 
 		r, err := json.Marshal(s)
 		if err != nil {
-			fmt.Println("Json error:", err)
+			cobra.CheckErr(fmt.Errorf("failed to marshal JSON: %w", err))
 		}
 		fmt.Println(string(r))
 		return string(r)

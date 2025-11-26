@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/chenq7an/gstor/common/controller"
+	"github.com/chenq7an/gstor/common/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +21,12 @@ var mkraid0Cmd = &cobra.Command{
 		eid := strings.Split(args[0], ":")[1]
 		sid := strings.Split(args[0], ":")[2]
 		if c.Tool == "/opt/MegaRAID/MegaCli/MegaCli64" {
-			bash(fmt.Sprintf(`%s -CfgLdAdd -r0 [%s:%s] WB Direct -a%s`, c.Tool, eid, sid, cid))
+			cmd := fmt.Sprintf(`%s -CfgLdAdd -r0 [%s:%s] WB Direct -a%s`, c.Tool, eid, sid, cid)
+			output, err := utils.ExecShell(cmd)
+			if err != nil {
+				cobra.CheckErr(fmt.Errorf("failed to create RAID0: %w, output: %s", err, output))
+			}
+			fmt.Println("RAID0 created successfully")
 		} else {
 			fmt.Printf("Not support yet, %s\n", c.Name)
 		}

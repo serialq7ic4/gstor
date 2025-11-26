@@ -16,10 +16,13 @@ var offCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		disk, err := block.Devices()
 		if err != nil {
-			fmt.Println(err)
+			cobra.CheckErr(fmt.Errorf("failed to get devices: %w", err))
 		}
 		err = disk.TurnOff(args[0])
-		fmt.Println(err)
+		if err != nil {
+			cobra.CheckErr(fmt.Errorf("failed to turn off locate: %w", err))
+		}
+		fmt.Println("OK")
 	},
 }
 

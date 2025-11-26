@@ -3,7 +3,6 @@ package block
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"sync"
@@ -76,7 +75,9 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	pwd := fmt.Sprintf(`/sys/bus/pci/devices/0000:%s:00.0/`, busNumber)
 	fileList, err := os.ReadDir(pwd)
 	if err != nil {
-		log.Fatal(err)
+		// 如果无法读取目录，记录错误但继续处理
+		fmt.Printf("Warning: failed to read directory %s: %v\n", pwd, err)
+		return
 	}
 	for _, file := range fileList {
 		switch {
