@@ -88,13 +88,18 @@ func (a *arcconfAdapter) SupportedTool() string {
 	return controller.ArcconfPath
 }
 
-// NVMe 适配器实现
+// NVMe 适配器实现（预留，当前未使用）
+// NVMe 设备通过 Devices() 函数直接返回，不需要通过适配器注册
+//
+//nolint:unused
 type nvmeAdapter struct{}
 
+//nolint:unused
 func (a *nvmeAdapter) CreateCollector() DiskCollector {
 	return &nvmeCollector{}
 }
 
+//nolint:unused
 func (a *nvmeAdapter) SupportedTool() string {
 	return "nvme"
 }

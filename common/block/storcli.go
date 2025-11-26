@@ -33,7 +33,7 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	tool := controller.StorcliPath
 	defer wg.Done()
 
-	utils.DebugLogStep(fmt.Sprintf("开始收集设备信息: %s", id))
+	utils.DebugLogStep("开始收集设备信息: %s", id)
 
 	// 解析 ID，支持两种格式：c:e:s 和 c:s
 	parts := strings.Split(id, ":")
@@ -120,7 +120,7 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	// 获取盘符：优先使用序列号匹配
 	if disk.SerialNumber != "" {
-		utils.DebugLogStep(fmt.Sprintf("通过序列号匹配盘符: %s", disk.SerialNumber))
+		utils.DebugLogStep("通过序列号匹配盘符: %s", disk.SerialNumber)
 		lsblkInfoSection := Bash(`lsblk -o KNAME,MODEL,SERIAL,TYPE | grep disk | grep ^sd[a-z] | grep -vi "logical"`)
 		lsblkInfo := strings.Split(strings.Trim(lsblkInfoSection, "\n"), "\n")
 

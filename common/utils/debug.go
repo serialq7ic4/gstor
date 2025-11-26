@@ -38,8 +38,11 @@ func DebugLogCommand(cmd string, shell string) {
 
 // DebugLogStep 输出关键步骤的 debug 日志
 // 支持格式化字符串，用法类似 fmt.Printf
+// 使用 fmt.Sprintf 确保格式字符串安全
 func DebugLogStep(format string, args ...interface{}) {
 	if debugEnabled {
-		fmt.Fprintf(os.Stderr, "[DEBUG] Step: %s\n", fmt.Sprintf(format, args...))
+		// 使用 fmt.Sprintf 先格式化，避免 go vet 警告
+		msg := fmt.Sprintf(format, args...)
+		fmt.Fprintf(os.Stderr, "[DEBUG] Step: %s\n", msg)
 	}
 }
