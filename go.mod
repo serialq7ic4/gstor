@@ -1,6 +1,6 @@
 module github.com/chenq7an/gstor
 
-go 1.21
+go 1.24
 
 require (
 	github.com/jedib0t/go-pretty/v6 v6.2.4

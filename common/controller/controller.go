@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-type Crontroller struct {
+type Controller struct {
 	Name  string
 	Num   int
 	Tool  string
@@ -82,7 +82,7 @@ func checkTool(t string) bool {
 	return PathExists(t)
 }
 
-func Collect() Crontroller {
+func Collect() Controller {
 	output := bash(`lspci | grep "^[0-9,a-z]" | grep -E 'Fusion-MPT|MegaRAID|Adaptec' | awk -F ':' '{print $NF}' | awk -F '[(|[]' '{print $1}' | uniq`)
 	c := strings.TrimSpace(output)
 
@@ -101,6 +101,6 @@ func Collect() Crontroller {
 	cn, _ := strconv.Atoi(cnum)
 	b := checkTool(t)
 	// fmt.Println(b)
-	s := Crontroller{Name: c, Num: cn, Tool: t, Avail: b}
+	s := Controller{Name: c, Num: cn, Tool: t, Avail: b}
 	return s
 }
