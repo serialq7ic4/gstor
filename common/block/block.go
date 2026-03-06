@@ -168,21 +168,15 @@ func (c *combinedCollector) Collect() []Disk {
 }
 
 func (c *combinedCollector) TurnOn(slot string) error {
-	// 首先尝试 RAID 收集器
-	if err := c.raidCollector.TurnOn(slot); err == nil {
-		return nil
+	if _, err := ParseSlotID(slot); err == nil {
+		return c.raidCollector.TurnOn(slot)
 	}
-
-	// 如果 RAID 收集器失败，尝试 NVMe 收集器
 	return c.nvmeCollector.TurnOn(slot)
 }
 
 func (c *combinedCollector) TurnOff(slot string) error {
-	// 首先尝试 RAID 收集器
-	if err := c.raidCollector.TurnOff(slot); err == nil {
-		return nil
+	if _, err := ParseSlotID(slot); err == nil {
+		return c.raidCollector.TurnOff(slot)
 	}
-
-	// 如果 RAID 收集器失败，尝试 NVMe 收集器
 	return c.nvmeCollector.TurnOff(slot)
 }

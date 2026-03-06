@@ -2,7 +2,6 @@ package block
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -276,8 +275,8 @@ func (m *storcliCollector) TurnOn(id string) error {
 	if !slot.HasEnclosure() {
 		cmd = fmt.Sprintf(`%s /c%s/s%s start locate`, c.Tool, slot.ControllerID, slot.SlotID)
 	}
-	locateInfo := Bash(cmd)
-	return errors.New(locateInfo)
+	_, err = utils.ExecShell(cmd)
+	return err
 }
 
 func (m *storcliCollector) TurnOff(id string) error {
@@ -291,6 +290,6 @@ func (m *storcliCollector) TurnOff(id string) error {
 	if !slot.HasEnclosure() {
 		cmd = fmt.Sprintf(`%s /c%s/s%s stop locate`, c.Tool, slot.ControllerID, slot.SlotID)
 	}
-	locateInfo := Bash(cmd)
-	return errors.New(locateInfo)
+	_, err = utils.ExecShell(cmd)
+	return err
 }

@@ -1,13 +1,13 @@
 package block
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"sync"
 
 	"github.com/chenq7an/gstor/common/controller"
+	"github.com/chenq7an/gstor/common/utils"
 	"github.com/spf13/cast"
 )
 
@@ -220,8 +220,8 @@ func (m *megacliCollector) TurnOn(id string) error {
 	}
 
 	c := controller.Collect()
-	locateInfo := Bash(fmt.Sprintf(`%s -PdLocate -start –physdrv[%s:%s] -a%s`, c.Tool, slot.EnclosureID, slot.SlotID, slot.ControllerID))
-	return errors.New(locateInfo)
+	_, err = utils.ExecShell(fmt.Sprintf(`%s -PdLocate -start –physdrv[%s:%s] -a%s`, c.Tool, slot.EnclosureID, slot.SlotID, slot.ControllerID))
+	return err
 }
 
 func (m *megacliCollector) TurnOff(id string) error {
@@ -234,6 +234,6 @@ func (m *megacliCollector) TurnOff(id string) error {
 	}
 
 	c := controller.Collect()
-	locateInfo := Bash(fmt.Sprintf(`%s -PdLocate -stop –physdrv[%s:%s] -a%s`, c.Tool, slot.EnclosureID, slot.SlotID, slot.ControllerID))
-	return errors.New(locateInfo)
+	_, err = utils.ExecShell(fmt.Sprintf(`%s -PdLocate -stop –physdrv[%s:%s] -a%s`, c.Tool, slot.EnclosureID, slot.SlotID, slot.ControllerID))
+	return err
 }
