@@ -3,8 +3,7 @@ package cmd
 import (
 	"fmt"
 	"net/http"
-	"net/http/httputil"
-	"os"
+	"strings"
 	"text/template"
 
 	"github.com/chenq7an/gstor/common/block"
@@ -19,7 +18,7 @@ var serverCmd = &cobra.Command{
 		if err != nil {
 			cobra.CheckErr(fmt.Errorf("failed to get port flag: %w", err))
 		}
-		startServer(port)
+		cobra.CheckErr(startServer(port))
 	},
 }
 
@@ -28,110 +27,61 @@ func init() {
 	rootCmd.AddCommand(serverCmd)
 }
 
-func startServer(port int) {
-	http.HandleFunc("/disks", func(w http.ResponseWriter, r *http.Request) {
-		data := getCommandResults()
-		renderTable(w, data)
-	})
-
-	http.HandleFunc("/disks/locate/on/", func(w http.ResponseWriter, r *http.Request) {
-		slot := r.URL.Path[len("/locate/on/"):]
-		disk, err := block.Devices()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		err = disk.TurnOn(slot)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if _, err := w.Write([]byte("OK")); err != nil {
-			http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)
-			return
-		}
-	})
-
-	http.HandleFunc("/disks/locate/off/", func(w http.ResponseWriter, r *http.Request) {
-		slot := r.URL.Path[len("/locate/off/"):]
-		disk, err := block.Devices()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		err = disk.TurnOff(slot)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if _, err := w.Write([]byte("OK")); err != nil {
-			http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)
-			return
-		}
-	})
-
-	// Create reverse proxy to handle requests
-	proxy := &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.URL.Scheme = "http"
-			req.URL.Host = req.Host
-		},
-	}
-
+func startServer(port int) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/disks", func(w http.ResponseWriter, r *http.Request) {
-		data := getCommandResults()
-		renderTable(w, data)
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		renderTable(w, getCommandResults())
 	})
-	mux.HandleFunc("/disks/locate/on/", func(w http.ResponseWriter, r *http.Request) {
-		slot := r.URL.Path[len("/disks/locate/on/"):]
-		disk, err := block.Devices()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		err = disk.TurnOn(slot)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if _, err := w.Write([]byte("OK")); err != nil {
-			http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)
-			return
-		}
-	})
-	mux.HandleFunc("/disks/locate/off/", func(w http.ResponseWriter, r *http.Request) {
-		slot := r.URL.Path[len("/disks/locate/off/"):]
-		disk, err := block.Devices()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		err = disk.TurnOff(slot)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if _, err := w.Write([]byte("OK")); err != nil {
-			http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)
-			return
-		}
-	})
-
-	// Handle all other requests with reverse proxy
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		proxy.ServeHTTP(w, r)
-	})
+	mux.HandleFunc("/disks/locate/on/", handleLocate(true))
+	mux.HandleFunc("/disks/locate/off/", handleLocate(false))
 
 	server := &http.Server{
-		Addr:    fmt.Sprintf("0.0.0.0:%d", port),
+		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
 		Handler: mux,
 	}
 
 	fmt.Printf("Starting server at http://%s\n", server.Addr)
-	if err := server.ListenAndServe(); err != nil {
-		fmt.Println("Error starting server:", err)
-		os.Exit(1)
+	return server.ListenAndServe()
+}
+
+func handleLocate(turnOn bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		prefix := "/disks/locate/off/"
+		if turnOn {
+			prefix = "/disks/locate/on/"
+		}
+		slot := strings.TrimPrefix(r.URL.Path, prefix)
+		if slot == "" || slot == r.URL.Path {
+			http.Error(w, "missing slot", http.StatusBadRequest)
+			return
+		}
+
+		disk, err := block.Devices()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if turnOn {
+			err = disk.TurnOn(slot)
+		} else {
+			err = disk.TurnOff(slot)
+		}
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if _, err := w.Write([]byte("OK")); err != nil {
+			http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)
+		}
 	}
 }
 
@@ -218,13 +168,13 @@ func renderTable(w http.ResponseWriter, data []map[string]string) {
     </table>
     <script>
         function locateOn(slot) {
-            fetch('/disks/locate/on/' + slot)
+            fetch('/disks/locate/on/' + encodeURIComponent(slot), { method: 'POST' })
                 .then(response => response.text())
                 .then(data => alert(data))
                 .catch(error => alert('Error: ' + error));
         }
         function locateOff(slot) {
-            fetch('/disks/locate/off/' + slot)
+            fetch('/disks/locate/off/' + encodeURIComponent(slot), { method: 'POST' })
                 .then(response => response.text())
                 .then(data => alert(data))
                 .catch(error => alert('Error: ' + error));
