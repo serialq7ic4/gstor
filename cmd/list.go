@@ -6,10 +6,23 @@ import (
 	"os"
 
 	"github.com/chenq7an/gstor/common/block"
-
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
+
+type listDiskOutput struct {
+	Name         string `json:"name"`
+	CES          string `json:"ces"`
+	State        string `json:"state"`
+	MediaType    string `json:"mediatype"`
+	PDType       string `json:"pdtype"`
+	MediaError   string `json:"mediaerror"`
+	PredictError string `json:"predicterror"`
+	Vendor       string `json:"vendor"`
+	Model        string `json:"model"`
+	Capacity     string `json:"capacity"`
+	SerialNumber string `json:"serialnumber"`
+}
 
 // listCmd represents the list command
 var listCmd = &cobra.Command{
@@ -21,6 +34,9 @@ var listCmd = &cobra.Command{
 		if err != nil {
 			cobra.CheckErr(fmt.Errorf("failed to get format flag: %w", err))
 		}
+		if form != "" && form != "json" {
+			cobra.CheckErr(fmt.Errorf("unsupported format %q, only json is supported", form))
+		}
 		_ = showBlock(form)
 	},
 }
@@ -28,11 +44,9 @@ var listCmd = &cobra.Command{
 func showBlock(form string) string {
 	disk, err := block.Devices()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		cobra.CheckErr(err)
 	}
 	devices := disk.Collect()
-	// form, _ := cmd.Flags().GetString("format")
 	if form == "" {
 		t := table.NewWriter()
 		t.SetOutputMirror(os.Stdout)
@@ -42,36 +56,37 @@ func showBlock(form string) string {
 			t.AppendRow(table.Row{devices[i].Name, devices[i].SerialNumber, devices[i].Capacity, devices[i].Vendor, devices[i].Model, devices[i].PDType, devices[i].MediaType, devices[i].CES, devices[i].State, devices[i].MediaError, devices[i].PredictError})
 		}
 		t.SetStyle(table.StyleLight)
-		t.SortBy([]table.SortBy{
-			{Name: "Disk", Mode: table.Asc},
-		})
+		t.SortBy([]table.SortBy{{Name: "Disk", Mode: table.Asc}})
 		t.Render()
 		return "noformat"
-	} else {
-		var s []block.Disk
-		for _, v := range devices {
-			s = append(s, block.Disk{Name: v.Name, CES: v.CES, State: v.State, PDType: v.PDType, MediaType: v.MediaType, MediaError: v.MediaError, PredictError: v.PredictError, Vendor: v.Vendor, Capacity: v.Capacity, SerialNumber: v.SerialNumber})
-		}
-
-		r, err := json.Marshal(s)
-		if err != nil {
-			cobra.CheckErr(fmt.Errorf("failed to marshal JSON: %w", err))
-		}
-		fmt.Println(string(r))
-		return string(r)
 	}
+
+	var output []listDiskOutput
+	for _, device := range devices {
+		output = append(output, listDiskOutput{
+			Name:         device.Name,
+			CES:          device.CES,
+			State:        device.State,
+			MediaType:    device.MediaType,
+			PDType:       device.PDType,
+			MediaError:   device.MediaError,
+			PredictError: device.PredictError,
+			Vendor:       device.Vendor,
+			Model:        device.Model,
+			Capacity:     device.Capacity,
+			SerialNumber: device.SerialNumber,
+		})
+	}
+
+	r, err := json.Marshal(output)
+	if err != nil {
+		cobra.CheckErr(fmt.Errorf("failed to marshal JSON: %w", err))
+	}
+	fmt.Println(string(r))
+	return string(r)
 }
 
 func init() {
 	rootCmd.AddCommand(listCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// listCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
 	listCmd.Flags().StringP("format", "f", "", "{json}")
 }
