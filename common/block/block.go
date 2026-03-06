@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/chenq7an/gstor/common/controller"
-	"github.com/chenq7an/gstor/common/utils"
 	"github.com/spf13/viper"
 )
 
@@ -109,14 +108,6 @@ func registerRaidToolAdapters() {
 	RegisterRaidToolAdapter(controller.MegacliPath, &megacliAdapter{})
 	RegisterRaidToolAdapter(controller.StorcliPath, &storcliAdapter{})
 	RegisterRaidToolAdapter(controller.ArcconfPath, &arcconfAdapter{})
-}
-
-// Bash 执行 shell 命令并返回输出
-// 错误时返回空字符串（为了向后兼容）
-// 新代码应该使用 utils.ExecShell() 来获取错误信息
-// Deprecated: 使用 utils.ExecShell() 替代，以便正确处理错误
-func Bash(cmd string) string {
-	return utils.ExecShellSafe(cmd)
 }
 
 func Devices() (DiskCollector, error) {

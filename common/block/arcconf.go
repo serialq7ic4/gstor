@@ -14,6 +14,15 @@ import (
 
 type arcconfCollector struct{}
 
+func execArcconfCommand(cmd string) string {
+	output, err := utils.ExecShell(cmd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: arcconf command failed: %v\n", err)
+		return ""
+	}
+	return output
+}
+
 func formatDiskSize(kb int) (size string) {
 	if kb < 1000 {
 		return fmt.Sprintf("%.f KB", float64(kb)/float64(1))
@@ -45,7 +54,7 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	disk := Disk{CES: id}
 	// 从阵列卡 Pdinfo 中抓取的信息
-	arcconfInfo := Bash(fmt.Sprintf(`%s getconfig %s pd %s %s | egrep "  State|Model|Serial number|Total Size|SSD|Medium Error Count|SMART Warning Count|Media Failures|Predictive Failures|Transfer Speed"`, tool, cid, eid, sid))
+	arcconfInfo := execArcconfCommand(fmt.Sprintf(`%s getconfig %s pd %s %s | egrep "  State|Model|Serial number|Total Size|SSD|Medium Error Count|SMART Warning Count|Media Failures|Predictive Failures|Transfer Speed"`, tool, cid, eid, sid))
 
 	pdInfo := strings.Split(strings.Trim(arcconfInfo, "\n"), "\n")
 
@@ -84,17 +93,17 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		}
 	}
 
-	adeptecInfo := Bash(fmt.Sprintf(`%s list | grep "Controller %s:"`, tool, cid))
+	adeptecInfo := execArcconfCommand(fmt.Sprintf(`%s list | grep "Controller %s:"`, tool, cid))
 
 	controllerMode := strings.Trim(strings.Split(strings.Trim(strings.Split(adeptecInfo, "(")[1], " "), ")")[0], " ")
 
 	if strings.Contains(controllerMode, "RAW") {
 		// 从 PD 的 LD 中抓取的信息
-		lsscsiInfoSection := Bash(`lsscsi | grep dev | awk '{print $4,$NF}'`)
+		lsscsiInfoSection := execArcconfCommand(`lsscsi | grep dev | awk '{print $4,$NF}'`)
 
 		lsscsiInfo := strings.Split(strings.Trim(lsscsiInfoSection, "\n"), "\n")
 
-		logicalDeviceName := strings.Trim(Bash(fmt.Sprintf(`%s getconfig %s ld | egrep "Logical Device name|%s" | grep -B1 %s | grep "Logical Device name" | awk '{print $NF}'`, tool, cid, disk.SerialNumber, disk.SerialNumber)), "\n")
+		logicalDeviceName := strings.Trim(execArcconfCommand(fmt.Sprintf(`%s getconfig %s ld | egrep "Logical Device name|%s" | grep -B1 %s | grep "Logical Device name" | awk '{print $NF}'`, tool, cid, disk.SerialNumber, disk.SerialNumber)), "\n")
 
 		for i, v := range lsscsiInfo {
 			switch {
@@ -103,7 +112,7 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 			}
 		}
 	} else if strings.Contains(controllerMode, "Hide RAW") {
-		disk.Name = strings.Trim(Bash(fmt.Sprintf(`%s getconfig %s ld | egrep "Disk Name|%s" | grep -B1 %s | grep "Disk Name" | awk '{print $NF}' | awk -F/ '{print $NF}'`, tool, cid, disk.SerialNumber, disk.SerialNumber)), "\n")
+		disk.Name = strings.Trim(execArcconfCommand(fmt.Sprintf(`%s getconfig %s ld | egrep "Disk Name|%s" | grep -B1 %s | grep "Disk Name" | awk '{print $NF}' | awk -F/ '{print $NF}'`, tool, cid, disk.SerialNumber, disk.SerialNumber)), "\n")
 	}
 
 	if disk.Name == "" {
@@ -123,7 +132,7 @@ func (m *arcconfCollector) Collect() []Disk {
 	c := controller.Collect()
 	// fmt.Printf("server have %d controller\n", c.Num)
 	for i := 1; i <= c.Num; i++ {
-		output := Bash(fmt.Sprintf(`%s list %d | grep Physical | grep Drive | grep Slot | awk '{print $2}' | awk -F, '{print "%d:"$1":"$2}'`, c.Tool, i, i))
+		output := execArcconfCommand(fmt.Sprintf(`%s list %d | grep Physical | grep Drive | grep Slot | awk '{print $2}' | awk -F, '{print "%d:"$1":"$2}'`, c.Tool, i, i))
 		pdces := strings.Split(strings.Trim(output, "\n"), "\n")
 		// 过滤空字符串和格式不正确的条目
 		for _, pd := range pdces {
