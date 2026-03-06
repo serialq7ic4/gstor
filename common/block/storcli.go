@@ -266,26 +266,30 @@ func (m *storcliCollector) Collect() []Disk {
 }
 
 func (m *storcliCollector) TurnOn(id string) error {
+	slot, err := ParseSlotID(id)
+	if err != nil {
+		return err
+	}
+
 	c := controller.Collect()
-	cid := strings.Split(id, ":")[0]
-	eid := strings.Split(id, ":")[1]
-	sid := strings.Split(id, ":")[2]
-	cmd := fmt.Sprintf(`%s /c%s/e%s/s%s start locate`, c.Tool, cid, eid, sid)
-	if eid == "" {
-		cmd = fmt.Sprintf(`%s /c%s/s%s start locate`, c.Tool, cid, sid)
+	cmd := fmt.Sprintf(`%s /c%s/e%s/s%s start locate`, c.Tool, slot.ControllerID, slot.EnclosureID, slot.SlotID)
+	if !slot.HasEnclosure() {
+		cmd = fmt.Sprintf(`%s /c%s/s%s start locate`, c.Tool, slot.ControllerID, slot.SlotID)
 	}
 	locateInfo := Bash(cmd)
 	return errors.New(locateInfo)
 }
 
 func (m *storcliCollector) TurnOff(id string) error {
+	slot, err := ParseSlotID(id)
+	if err != nil {
+		return err
+	}
+
 	c := controller.Collect()
-	cid := strings.Split(id, ":")[0]
-	eid := strings.Split(id, ":")[1]
-	sid := strings.Split(id, ":")[2]
-	cmd := fmt.Sprintf(`%s /c%s/e%s/s%s stop locate`, c.Tool, cid, eid, sid)
-	if eid == "" {
-		cmd = fmt.Sprintf(`%s /c%s/s%s stop locate`, c.Tool, cid, sid)
+	cmd := fmt.Sprintf(`%s /c%s/e%s/s%s stop locate`, c.Tool, slot.ControllerID, slot.EnclosureID, slot.SlotID)
+	if !slot.HasEnclosure() {
+		cmd = fmt.Sprintf(`%s /c%s/s%s stop locate`, c.Tool, slot.ControllerID, slot.SlotID)
 	}
 	locateInfo := Bash(cmd)
 	return errors.New(locateInfo)
