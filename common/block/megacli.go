@@ -25,7 +25,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	// 解析 ID，格式：c:e:s
 	parts := strings.Split(id, ":")
 	if len(parts) != 3 {
-		fmt.Printf("Invalid device ID format: %s, expected format: c:e:s\n", id)
+		fmt.Fprintf(os.Stderr, "Invalid device ID format: %s, expected format: c:e:s\n", id)
 		return
 	}
 
@@ -76,7 +76,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	fileList, err := os.ReadDir(pwd)
 	if err != nil {
 		// 如果无法读取目录，记录错误但继续处理
-		fmt.Printf("Warning: failed to read directory %s: %v\n", pwd, err)
+		fmt.Fprintf(os.Stderr, "Warning: failed to read directory %s: %v\n", pwd, err)
 		return
 	}
 	for _, file := range fileList {

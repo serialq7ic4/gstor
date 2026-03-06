@@ -3,6 +3,7 @@ package block
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,7 +34,7 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	// 解析 ID，格式：c:e:s
 	parts := strings.Split(id, ":")
 	if len(parts) != 3 {
-		fmt.Printf("Invalid device ID format: %s, expected format: c:e:s\n", id)
+		fmt.Fprintf(os.Stderr, "Invalid device ID format: %s, expected format: c:e:s\n", id)
 		return
 	}
 

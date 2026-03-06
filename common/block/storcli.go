@@ -3,6 +3,7 @@ package block
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,7 +38,7 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	// 解析 ID，支持两种格式：c:e:s 和 c:s
 	parts := strings.Split(id, ":")
 	if len(parts) < 2 {
-		fmt.Printf("Invalid device ID format: %s, expected format: c:e:s or c:s\n", id)
+		fmt.Fprintf(os.Stderr, "Invalid device ID format: %s, expected format: c:e:s or c:s\n", id)
 		return
 	}
 
@@ -74,7 +75,7 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	err := json.Unmarshal([]byte(storcliVDInfo), &vdInfo)
 	if err != nil {
 		// JSON 解析失败不影响基本磁盘信息收集，只记录警告
-		fmt.Printf("Warning: failed to parse JSON for VD info: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Warning: failed to parse JSON for VD info: %v\n", err)
 		// 继续处理，不使用 VD 信息
 	}
 
