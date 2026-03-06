@@ -111,17 +111,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		}
 	}
 
-	if strings.HasPrefix(strings.ToUpper(disk.Vendor), "ST") {
-		disk.Vendor = "SEAGATE"
-	}
-
-	if strings.HasPrefix(strings.ToUpper(disk.Vendor), "HU") {
-		disk.Vendor = "HGST"
-	}
-
-	if strings.HasPrefix(strings.ToUpper(disk.Vendor), "MICRON") {
-		disk.Vendor = "MICRON"
-	}
+	disk.Vendor = NormalizeVendor(disk.Vendor)
 
 	if disk.State == "JBOD" {
 		disk.Name = strings.Trim(Bash(fmt.Sprintf(`ls -l /dev/disk/by-id/ | grep -E "*%s*" | awk -F/ '{print $NF}'`, disk.SerialNumber)), "\n")

@@ -109,17 +109,7 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		disk.Name = "Nil"
 	}
 
-	if strings.HasPrefix(strings.ToUpper(disk.Vendor), "ST") {
-		disk.Vendor = "SEAGATE"
-	}
-
-	if strings.HasPrefix(strings.ToUpper(disk.Vendor), "HU") {
-		disk.Vendor = "HGST"
-	}
-
-	if strings.HasPrefix(strings.ToUpper(disk.Vendor), "MICRON") {
-		disk.Vendor = "MICRON"
-	}
+	disk.Vendor = NormalizeVendor(disk.Vendor)
 
 	// fmt.Printf("Device %s done\n", id)
 
