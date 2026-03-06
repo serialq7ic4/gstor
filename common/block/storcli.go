@@ -15,6 +15,15 @@ import (
 
 type storcliCollector struct{}
 
+func execStorcliCommand(cmd string) string {
+	output, err := utils.ExecShell(cmd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: storcli command failed: %v\n", err)
+		return ""
+	}
+	return output
+}
+
 func formatBlockSize(block int) (size string) {
 	if block < 1000 {
 		return fmt.Sprintf("%.f B", float64(block)/float64(1))
@@ -65,8 +74,8 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	if eid == "" {
 		cmd = fmt.Sprintf(`%s /c%s/s%s show all`, tool, cid, sid)
 	}
-	storcliInfo := Bash(cmd)
-	storcliVDInfo := Bash(vdcmd)
+	storcliInfo := execStorcliCommand(cmd)
+	storcliVDInfo := execStorcliCommand(vdcmd)
 
 	pdInfo := strings.Split(strings.Trim(storcliInfo, "\n"), "\n")
 	// 解析 JSON 数据
@@ -121,7 +130,7 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	// 获取盘符：优先使用序列号匹配
 	if disk.SerialNumber != "" {
 		utils.DebugLogStep("通过序列号匹配盘符: %s", disk.SerialNumber)
-		lsblkInfoSection := Bash(`lsblk -o KNAME,MODEL,SERIAL,TYPE | grep disk | grep ^sd[a-z] | grep -vi "logical"`)
+		lsblkInfoSection := execStorcliCommand(`lsblk -o KNAME,MODEL,SERIAL,TYPE | grep disk | grep ^sd[a-z] | grep -vi "logical"`)
 		lsblkInfo := strings.Split(strings.Trim(lsblkInfoSection, "\n"), "\n")
 
 		for _, v := range lsblkInfo {
@@ -162,7 +171,7 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 			// 将 SCSI NAA Id 转换为字符串
 			if len(scsiNaaId) > 0 {
 				scsiNaaIdStr = scsiNaaId[0].String()
-				disk.Name = strings.Trim(Bash(fmt.Sprintf(
+				disk.Name = strings.Trim(execStorcliCommand(fmt.Sprintf(
 					`ls -l /dev/disk/by-id/ | grep "%s" | grep -v part | awk -F/ '{print $NF}' | sort | uniq`,
 					scsiNaaIdStr)), "\n")
 			}
@@ -171,7 +180,7 @@ func storcli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	if disk.Vendor == "" {
 		if disk.Name != "" {
-			model := Bash(fmt.Sprintf(`smartctl -i /dev/%s | egrep "Device Model|Vendor"`, disk.Name))
+			model := execStorcliCommand(fmt.Sprintf(`smartctl -i /dev/%s | egrep "Device Model|Vendor"`, disk.Name))
 			disk.Vendor = strings.Trim(strings.Split(strings.Trim(strings.Split(model, ":")[1], " "), " ")[0], " ")
 		} else {
 			disk.Vendor = "unknown"
@@ -195,7 +204,7 @@ func (m *storcliCollector) Collect() []Disk {
 		// 获取所有物理磁盘的 EID:Slt 列表
 		// storcli /c0 show 输出格式可能是 "EID:Slt" 格式（如 "24:15"），需要解析
 		utils.DebugLogStep("获取控制器 %d 的所有物理磁盘", i)
-		diskOutput := Bash(fmt.Sprintf(`%s /c%d/eall/sall show | grep "^[0-9]" | awk '{print $1}'`, c.Tool, i))
+		diskOutput := execStorcliCommand(fmt.Sprintf(`%s /c%d/eall/sall show | grep "^[0-9]" | awk '{print $1}'`, c.Tool, i))
 		disks := strings.Split(strings.Trim(diskOutput, "\n"), "\n")
 
 		// 使用 map 去重 enclosure ID
@@ -222,7 +231,7 @@ func (m *storcliCollector) Collect() []Disk {
 		for eid := range enclosureMap {
 			utils.DebugLogStep("获取控制器 %d enclosure %s 下的所有硬盘", i, eid)
 			// 使用正确的格式：/c0/e24/sall 而不是 /c0/e24:15/sall
-			diskOutput := Bash(fmt.Sprintf(`%s /c%d/e%s/sall show | grep "^%s:" | awk '{print $1}'`, c.Tool, i, eid, eid))
+			diskOutput := execStorcliCommand(fmt.Sprintf(`%s /c%d/e%s/sall show | grep "^%s:" | awk '{print $1}'`, c.Tool, i, eid, eid))
 			enclosureDisks := strings.Split(strings.Trim(diskOutput, "\n"), "\n")
 
 			utils.DebugLog("enclosure %s 下找到 %d 个硬盘", eid, len(enclosureDisks))
