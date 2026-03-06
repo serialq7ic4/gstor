@@ -160,4 +160,5 @@ CI 当前会执行：
 
 - 调试说明：`docs/DEBUG_MODE.md`
 - Shell 命令迁移规范：`docs/SHELL_COMMAND_MIGRATION.md`
+- 架构说明：`ARCHITECTURE.md`
 - 路线图：`ROADMAP.md`
