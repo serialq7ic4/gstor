@@ -13,6 +13,15 @@ import (
 
 type megacliCollector struct{}
 
+func execMegacliCommand(cmd string) string {
+	output, err := utils.ExecShell(cmd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: megacli command failed: %v\n", err)
+		return ""
+	}
+	return output
+}
+
 func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	var _deviceId string
 	var _wwn string
@@ -35,7 +44,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	disk := Disk{CES: id, MediaError: "0", PredictError: "0"}
 	// 从阵列卡 Pdinfo 中抓取的信息
-	megacliInfo := Bash(fmt.Sprintf(`%s -Pdinfo -PhysDrv[%s:%s] -a%s | egrep "Device Id:|WWN:|Firmware state:|Media Type:|Media Error Count:|Other Error Count:|Predictive Failure Count:|PD Type:"`, tool, eid, sid, cid))
+	megacliInfo := execMegacliCommand(fmt.Sprintf(`%s -Pdinfo -PhysDrv[%s:%s] -a%s | egrep "Device Id:|WWN:|Firmware state:|Media Type:|Media Error Count:|Other Error Count:|Predictive Failure Count:|PD Type:"`, tool, eid, sid, cid))
 
 	pdInfo := strings.Split(strings.Trim(megacliInfo, "\n"), "\n")
 
@@ -69,7 +78,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 	// 从 SMART 中抓取的信息
 	var scsiBusNumber string
-	adapterInfo := Bash(fmt.Sprintf(`%s -adpgetpciinfo -a%s | grep "Bus Number" | awk '{print $NF}'`, tool, cid))
+	adapterInfo := execMegacliCommand(fmt.Sprintf(`%s -adpgetpciinfo -a%s | grep "Bus Number" | awk '{print $NF}'`, tool, cid))
 	busNumber := strings.Trim(adapterInfo, "\n")
 	busNumber = fmt.Sprintf("%02s", busNumber)
 	pwd := fmt.Sprintf(`/sys/bus/pci/devices/0000:%s:00.0/`, busNumber)
@@ -86,7 +95,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		}
 	}
 
-	smartInfoSection := Bash(fmt.Sprintf(`smartctl /dev/bus/%s -d megaraid,%s -i`, scsiBusNumber, _deviceId))
+	smartInfoSection := execMegacliCommand(fmt.Sprintf(`smartctl /dev/bus/%s -d megaraid,%s -i`, scsiBusNumber, _deviceId))
 
 	smartInfo := strings.Split(strings.Trim(smartInfoSection, "\n"), "\n")
 
@@ -114,11 +123,11 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	disk.Vendor = NormalizeVendor(disk.Vendor)
 
 	if disk.State == "JBOD" {
-		disk.Name = strings.Trim(Bash(fmt.Sprintf(`ls -l /dev/disk/by-id/ | grep -E "*%s*" | awk -F/ '{print $NF}'`, disk.SerialNumber)), "\n")
+		disk.Name = strings.Trim(execMegacliCommand(fmt.Sprintf(`ls -l /dev/disk/by-id/ | grep -E "*%s*" | awk -F/ '{print $NF}'`, disk.SerialNumber)), "\n")
 	}
 
 	// 根据 PD 的 LD 信息精准匹配盘符与slot对应关系
-	ldInfoSection := Bash(fmt.Sprintf(`%s -LdPdInfo -a%s | egrep "Virtual Drive|Sequence Number|%s"`, tool, cid, _wwn))
+	ldInfoSection := execMegacliCommand(fmt.Sprintf(`%s -LdPdInfo -a%s | egrep "Virtual Drive|Sequence Number|%s"`, tool, cid, _wwn))
 
 	ldInfo := strings.Split(strings.Trim(ldInfoSection, "\n"), "\n")
 
@@ -152,7 +161,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 			// 如果 targetId 和 sequenceNum 都找到了，执行查找
 			if targetId != "" && sequenceNum != "" {
-				disk.Name = strings.Trim(Bash(fmt.Sprintf(
+				disk.Name = strings.Trim(execMegacliCommand(fmt.Sprintf(
 					`ls -l /dev/disk/by-path/ | grep -E "pci-0000:%s:00.0-scsi-[0-9]:%s:%s:[0-9] " | awk -F/ '{print $NF}'`,
 					busNumber, sequenceNum, targetId)), "\n")
 			}
@@ -174,7 +183,7 @@ func (m *megacliCollector) Collect() []Disk {
 	c := controller.Collect()
 	// fmt.Printf("server have %d controller\n", c.Num)
 	for i := 0; i < c.Num; i++ {
-		output := Bash(fmt.Sprintf(`%s -PDList -a%d | grep -E "Enclosure Device|Slot" | awk 'NR%%2==0{print a":"$NF}{a=$NF}' | awk '{print "%d:"$0}'`, c.Tool, i, i))
+		output := execMegacliCommand(fmt.Sprintf(`%s -PDList -a%d | grep -E "Enclosure Device|Slot" | awk 'NR%%2==0{print a":"$NF}{a=$NF}' | awk '{print "%d:"$0}'`, c.Tool, i, i))
 		pdces := strings.Split(strings.Trim(output, "\n"), "\n")
 		// 过滤空字符串和格式不正确的条目
 		for _, pd := range pdces {
