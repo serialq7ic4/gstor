@@ -52,9 +52,7 @@ var reportCmd = &cobra.Command{
 			}
 		}
 		payload.Type = "disk"
-		ip, err := bash(`route -n | grep ^[0-9] | grep -v docker | grep -v "169.254.0.0" | \
-													awk '{print $NF}' | head -n1 | xargs -i ifconfig {} | grep inet | \
-													grep netmask | grep broadcast | awk '{print $2}'`)
+		ip, err := utils.PrimaryIPv4()
 		if err != nil {
 			cobra.CheckErr(fmt.Errorf("failed to get IP address: %w", err))
 		}

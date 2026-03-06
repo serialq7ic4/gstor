@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/chenq7an/gstor/common/controller"
+	"github.com/chenq7an/gstor/common/utils"
 )
 
 type arcconfCollector struct{}
@@ -158,9 +159,10 @@ func (m *arcconfCollector) TurnOn(id string) error {
 	}
 
 	c := controller.Collect()
-	ip := strings.Trim(Bash(`route -n | grep ^[0-9] | grep -v docker | grep -v "169.254.0.0" | \
-	awk '{print $NF}' | head -n1 | xargs -i ifconfig {} | grep inet | \
-	grep netmask | grep broadcast | awk '{print $2}'`), "\n")
+	ip := "unknown"
+	if detectedIP, err := utils.PrimaryIPv4(); err == nil {
+		ip = detectedIP
+	}
 	cmd := fmt.Sprintf(`该控制器点灯操作需要交互,请登录服务器 %s 执行如下命令点灯
 %s identify %s device %s %s`, ip, c.Tool, slot.ControllerID, slot.EnclosureID, slot.SlotID)
 	return errors.New(cmd)
@@ -176,9 +178,10 @@ func (m *arcconfCollector) TurnOff(id string) error {
 	}
 
 	c := controller.Collect()
-	ip := strings.Trim(Bash(`route -n | grep ^[0-9] | grep -v docker | grep -v "169.254.0.0" | \
-	awk '{print $NF}' | head -n1 | xargs -i ifconfig {} | grep inet | \
-	grep netmask | grep broadcast | awk '{print $2}'`), "\n")
+	ip := "unknown"
+	if detectedIP, err := utils.PrimaryIPv4(); err == nil {
+		ip = detectedIP
+	}
 	cmd := fmt.Sprintf(`该控制器点灯操作需要交互,请登录服务器 %s 执行如下命令点灯
 %s identify %s device %s %s`, ip, c.Tool, slot.ControllerID, slot.EnclosureID, slot.SlotID)
 	return errors.New(cmd)
