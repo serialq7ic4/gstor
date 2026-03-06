@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/chenq7an/gstor/common/utils"
 )
 
 // nvmeCollector 实现 DiskCollector 接口
@@ -38,21 +40,31 @@ func extractPCIID(path string) string {
 
 // 获取指定PCI设备的Physical Slot信息
 func getPhysicalSlot(pciID string) (string, error) {
-	// 执行lspci命令
-	lspciInfoSection := Bash(fmt.Sprintf(`lspci -vvs %s | grep "Physical Slot" | awk '{print $NF}'`, pciID))
-	phyid := strings.Trim(lspciInfoSection, "\n")
-	return phyid, nil
+	output, err := utils.ExecShell(fmt.Sprintf(`lspci -vvs %s | grep "Physical Slot" | awk '{print $NF}'`, pciID))
+	if err != nil {
+		return "", err
+	}
+	return strings.Trim(output, "\n"), nil
 }
 
 func Nvme() []Disk {
 	s := []Disk{}
-	nvmeList := Bash(`lsblk | grep disk | grep nvme | awk '{print $1}'`)
+	nvmeList, err := utils.ExecShell(`lsblk | grep disk | grep nvme | awk '{print $1}'`)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to list NVMe disks: %v\n", err)
+		return s
+	}
+
 	nvme := strings.Split(strings.Trim(nvmeList, "\n"), "\n")
 	for _, v := range nvme {
 		if v != "" {
 			disk := Disk{CES: "Nil", State: "Direct", MediaType: "SSD", PDType: "NVME", MediaError: "0", PredictError: "0"}
 			disk.Name = v
-			smartInfoSection := Bash(fmt.Sprintf(`smartctl /dev/%s -i`, disk.Name))
+			smartInfoSection, err := utils.ExecShell(fmt.Sprintf(`smartctl /dev/%s -i`, disk.Name))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to read smart info for %s: %v\n", disk.Name, err)
+				smartInfoSection = ""
+			}
 			smartInfo := strings.Split(strings.Trim(smartInfoSection, "\n"), "\n")
 			for _, w := range smartInfo {
 				switch {
@@ -64,8 +76,6 @@ func Nvme() []Disk {
 					} else {
 						disk.Model = disk.Vendor
 					}
-					// disk.Vendor = strings.Split(strings.Trim(strings.Split(w, ":")[1], " "), " ")[0]
-					// disk.Model = strings.Split(strings.Trim(strings.Split(w, ":")[1], " "), " ")[0]
 				case strings.Contains(w, "Serial Number"):
 					disk.SerialNumber = strings.Trim(strings.Split(w, ":")[1], " ")
 				case strings.Contains(w, "Total NVM Capacity"):
@@ -89,7 +99,11 @@ func Nvme() []Disk {
 					disk.CES = physicalSlot
 				}
 			}
-			smartSection := Bash(fmt.Sprintf(`smartctl /dev/%s -A`, disk.Name))
+			smartSection, err := utils.ExecShell(fmt.Sprintf(`smartctl /dev/%s -A`, disk.Name))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to read smart attributes for %s: %v\n", disk.Name, err)
+				smartSection = ""
+			}
 			smart := strings.Split(strings.Trim(smartSection, "\n"), "\n")
 			for _, x := range smart {
 				switch {
