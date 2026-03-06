@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/chenq7an/gstor/common/controller"
 	"github.com/chenq7an/gstor/common/utils"
@@ -38,7 +39,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gstor.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gstor.yaml)")
 
 	// Debug flag - 全局可用
 	rootCmd.PersistentFlags().BoolVarP(&debugMode, "debug", "d", false, "启用调试模式，显示详细的执行信息")
@@ -72,6 +73,8 @@ func initConfig() {
 		viper.SetConfigType("yaml")
 	}
 
+	viper.SetEnvPrefix("GSTOR")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// Set default values from ToolMap
