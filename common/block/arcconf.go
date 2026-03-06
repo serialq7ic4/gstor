@@ -158,27 +158,37 @@ func (m *arcconfCollector) Collect() []Disk {
 }
 
 func (m *arcconfCollector) TurnOn(id string) error {
+	slot, err := ParseSlotID(id)
+	if err != nil {
+		return err
+	}
+	if !slot.HasEnclosure() {
+		return fmt.Errorf("arcconf locate requires c:e:s slot id, got %q", id)
+	}
+
 	c := controller.Collect()
-	cid := strings.Split(id, ":")[0]
-	eid := strings.Split(id, ":")[1]
-	sid := strings.Split(id, ":")[2]
 	ip := strings.Trim(Bash(`route -n | grep ^[0-9] | grep -v docker | grep -v "169.254.0.0" | \
 	awk '{print $NF}' | head -n1 | xargs -i ifconfig {} | grep inet | \
 	grep netmask | grep broadcast | awk '{print $2}'`), "\n")
 	cmd := fmt.Sprintf(`该控制器点灯操作需要交互,请登录服务器 %s 执行如下命令点灯
-%s identify %s device %s %s`, ip, c.Tool, cid, eid, sid)
+%s identify %s device %s %s`, ip, c.Tool, slot.ControllerID, slot.EnclosureID, slot.SlotID)
 	return errors.New(cmd)
 }
 
 func (m *arcconfCollector) TurnOff(id string) error {
+	slot, err := ParseSlotID(id)
+	if err != nil {
+		return err
+	}
+	if !slot.HasEnclosure() {
+		return fmt.Errorf("arcconf locate requires c:e:s slot id, got %q", id)
+	}
+
 	c := controller.Collect()
-	cid := strings.Split(id, ":")[0]
-	eid := strings.Split(id, ":")[1]
-	sid := strings.Split(id, ":")[2]
 	ip := strings.Trim(Bash(`route -n | grep ^[0-9] | grep -v docker | grep -v "169.254.0.0" | \
 	awk '{print $NF}' | head -n1 | xargs -i ifconfig {} | grep inet | \
 	grep netmask | grep broadcast | awk '{print $2}'`), "\n")
 	cmd := fmt.Sprintf(`该控制器点灯操作需要交互,请登录服务器 %s 执行如下命令点灯
-%s identify %s device %s %s`, ip, c.Tool, cid, eid, sid)
+%s identify %s device %s %s`, ip, c.Tool, slot.ControllerID, slot.EnclosureID, slot.SlotID)
 	return errors.New(cmd)
 }
