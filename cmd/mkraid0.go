@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/chenq7an/gstor/common/block"
 	"github.com/chenq7an/gstor/common/controller"
 	"github.com/chenq7an/gstor/common/utils"
 	"github.com/spf13/cobra"
@@ -16,12 +16,18 @@ var mkraid0Cmd = &cobra.Command{
 	Long:  `输入c:e:s信息,用于对该硬盘做raid0,目前仅适用于Megacli64控制器,具体c:e:s信息可以通过gstor list命令查看`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		slot, err := block.ParseSlotID(args[0])
+		if err != nil {
+			cobra.CheckErr(err)
+		}
+
+		if !slot.HasEnclosure() {
+			cobra.CheckErr(fmt.Errorf("mkraid0 requires c:e:s slot id, got %q", args[0]))
+		}
+
 		c := controller.Collect()
-		cid := strings.Split(args[0], ":")[0]
-		eid := strings.Split(args[0], ":")[1]
-		sid := strings.Split(args[0], ":")[2]
-		if c.Tool == "/opt/MegaRAID/MegaCli/MegaCli64" {
-			cmd := fmt.Sprintf(`%s -CfgLdAdd -r0 [%s:%s] WB Direct -a%s`, c.Tool, eid, sid, cid)
+		if c.Tool == controller.MegacliPath {
+			cmd := fmt.Sprintf(`%s -CfgLdAdd -r0 [%s:%s] WB Direct -a%s`, c.Tool, slot.EnclosureID, slot.SlotID, slot.ControllerID)
 			output, err := utils.ExecShell(cmd)
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to create RAID0: %w, output: %s", err, output))
