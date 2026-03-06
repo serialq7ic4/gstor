@@ -2,16 +2,34 @@ package utils
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
+
+const defaultShellTimeout = 30 * time.Second
 
 // ExecShell 执行 shell 命令并返回输出和错误
 // 这是推荐的函数，因为它允许调用者处理错误
 func ExecShell(cmd string) (string, error) {
 	return ExecShellWithShell(cmd, "/bin/sh")
+}
+
+func getShellTimeout() time.Duration {
+	value := strings.TrimSpace(os.Getenv("GSTOR_SHELL_TIMEOUT"))
+	if value == "" {
+		return defaultShellTimeout
+	}
+
+	timeout, err := time.ParseDuration(value)
+	if err != nil || timeout <= 0 {
+		return defaultShellTimeout
+	}
+	return timeout
 }
 
 // ExecShellWithShell 使用指定的 shell 执行命令
@@ -21,7 +39,11 @@ func ExecShellWithShell(cmd string, shell string) (string, error) {
 	// Debug 模式：打印执行的命令
 	DebugLogCommand(cmd, shell)
 
-	cmdjob := exec.Command(shell, "-c", cmd)
+	timeout := getShellTimeout()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmdjob := exec.CommandContext(ctx, shell, "-c", cmd)
 	var stdout, stderr bytes.Buffer
 	cmdjob.Stdout = &stdout
 	cmdjob.Stderr = &stderr
@@ -29,6 +51,10 @@ func ExecShellWithShell(cmd string, shell string) (string, error) {
 	err := cmdjob.Run()
 	outStr := stdout.String()
 	errStr := stderr.String()
+
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return "", fmt.Errorf("command '%s' timed out after %s", cmd, timeout)
+	}
 
 	if err != nil {
 		// Debug 模式：打印错误信息
