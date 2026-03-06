@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/chenq7an/gstor/common/block"
 	"github.com/chenq7an/gstor/common/utils"
@@ -75,7 +76,7 @@ var reportCmd = &cobra.Command{
 			cobra.CheckErr(fmt.Errorf("failed to create HTTP request: %w", err))
 		}
 		request.Header.Set("Content-Type", "application/json; charset=UTF-8")
-		client := &http.Client{}
+		client := &http.Client{Timeout: 10 * time.Second}
 		response, err := client.Do(request)
 		if err != nil {
 			cobra.CheckErr(fmt.Errorf("failed to send HTTP request: %w", err))
@@ -85,6 +86,9 @@ var reportCmd = &cobra.Command{
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
 			cobra.CheckErr(fmt.Errorf("failed to read response body: %w", err))
+		}
+		if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+			cobra.CheckErr(fmt.Errorf("report API returned %s: %s", response.Status, string(body)))
 		}
 		fmt.Println("response Body:", string(body))
 	},
