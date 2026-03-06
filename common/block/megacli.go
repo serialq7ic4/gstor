@@ -211,19 +211,29 @@ func (m *megacliCollector) Collect() []Disk {
 }
 
 func (m *megacliCollector) TurnOn(id string) error {
+	slot, err := ParseSlotID(id)
+	if err != nil {
+		return err
+	}
+	if !slot.HasEnclosure() {
+		return fmt.Errorf("megacli locate requires c:e:s slot id, got %q", id)
+	}
+
 	c := controller.Collect()
-	cid := strings.Split(id, ":")[0]
-	eid := strings.Split(id, ":")[1]
-	sid := strings.Split(id, ":")[2]
-	locateInfo := Bash(fmt.Sprintf(`%s -PdLocate -start –physdrv[%s:%s] -a%s`, c.Tool, eid, sid, cid))
+	locateInfo := Bash(fmt.Sprintf(`%s -PdLocate -start –physdrv[%s:%s] -a%s`, c.Tool, slot.EnclosureID, slot.SlotID, slot.ControllerID))
 	return errors.New(locateInfo)
 }
 
 func (m *megacliCollector) TurnOff(id string) error {
+	slot, err := ParseSlotID(id)
+	if err != nil {
+		return err
+	}
+	if !slot.HasEnclosure() {
+		return fmt.Errorf("megacli locate requires c:e:s slot id, got %q", id)
+	}
+
 	c := controller.Collect()
-	cid := strings.Split(id, ":")[0]
-	eid := strings.Split(id, ":")[1]
-	sid := strings.Split(id, ":")[2]
-	locateInfo := Bash(fmt.Sprintf(`%s -PdLocate -stop –physdrv[%s:%s] -a%s`, c.Tool, eid, sid, cid))
+	locateInfo := Bash(fmt.Sprintf(`%s -PdLocate -stop –physdrv[%s:%s] -a%s`, c.Tool, slot.EnclosureID, slot.SlotID, slot.ControllerID))
 	return errors.New(locateInfo)
 }
