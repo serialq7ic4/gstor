@@ -15,6 +15,7 @@ type smartResponse struct {
 	ResolvedDevice  string             `json:"resolved_device"`
 	Slot            string             `json:"slot,omitempty"`
 	Summary         block.SmartSummary `json:"summary"`
+	RawOutput       string             `json:"raw_output,omitempty"`
 }
 
 var smartCmd = &cobra.Command{
@@ -29,6 +30,11 @@ var smartCmd = &cobra.Command{
 		}
 		if form != "" && form != "json" {
 			cobra.CheckErr(fmt.Errorf("unsupported format %q, only json is supported", form))
+		}
+
+		verbose, err := cmd.Flags().GetBool("verbose")
+		if err != nil {
+			cobra.CheckErr(fmt.Errorf("failed to get verbose flag: %w", err))
 		}
 
 		device, slot, err := resolveSmartDevice(args[0])
@@ -47,6 +53,9 @@ var smartCmd = &cobra.Command{
 			Slot:            slot,
 			Summary:         block.ParseSmartSummary(device, output),
 		}
+		if verbose {
+			response.RawOutput = output
+		}
 
 		if form == "json" {
 			payload, err := json.Marshal(response)
@@ -58,6 +67,11 @@ var smartCmd = &cobra.Command{
 		}
 
 		printSmartSummary(response)
+		if verbose {
+			fmt.Println()
+			fmt.Println("--- RAW SMART OUTPUT ---")
+			fmt.Println(output)
+		}
 	},
 }
 
@@ -130,4 +144,5 @@ func formatTemperature(value string) string {
 func init() {
 	rootCmd.AddCommand(smartCmd)
 	smartCmd.Flags().StringP("format", "f", "", "{json}")
+	smartCmd.Flags().BoolP("verbose", "v", false, "显示原始 SMART 输出")
 }
