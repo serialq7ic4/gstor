@@ -53,6 +53,11 @@ gstor locate off 0:1:2
 # 生成本地配置文件
 gstor init
 
+# 查看关键 SMART 信息（支持盘符或槽位）
+gstor smart sda
+gstor smart 0:24:15
+gstor smart -f json nvme0n1
+
 # 启动轻量 Web 页面
 gstor server -p 9100
 ```
