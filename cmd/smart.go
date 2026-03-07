@@ -95,7 +95,7 @@ func printSmartSummary(response smartResponse) {
 		{"Model", response.Summary.Model},
 		{"Serial", response.Summary.SerialNumber},
 		{"Capacity", response.Summary.Capacity},
-		{"TemperatureC", response.Summary.TemperatureC},
+		{"Temperature", formatTemperature(response.Summary.TemperatureC)},
 		{"PowerOnHours", response.Summary.PowerOnHours},
 		{"PowerCycles", response.Summary.PowerCycles},
 		{"ReallocatedSectors", response.Summary.ReallocatedSectors},
@@ -115,6 +115,16 @@ func printSmartSummary(response smartResponse) {
 		}
 		fmt.Printf("%-20s %s\n", field.label+":", field.value)
 	}
+}
+
+func formatTemperature(value string) string {
+	if value == "" {
+		return ""
+	}
+	if strings.ContainsAny(value, "Cc") {
+		return value
+	}
+	return value + " C"
 }
 
 func init() {
