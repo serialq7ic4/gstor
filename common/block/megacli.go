@@ -219,7 +219,7 @@ func (m *megacliCollector) TurnOn(id string) error {
 	}
 
 	c := controller.Collect()
-	_, err = utils.ExecShell(fmt.Sprintf(`%s -PdLocate -start –physdrv[%s:%s] -a%s`, c.Tool, slot.EnclosureID, slot.SlotID, slot.ControllerID))
+	_, err = utils.ExecShell(fmt.Sprintf(`%s -PdLocate -start -physdrv[%s:%s] -a%s`, c.Tool, slot.EnclosureID, slot.SlotID, slot.ControllerID))
 	return err
 }
 
@@ -233,6 +233,6 @@ func (m *megacliCollector) TurnOff(id string) error {
 	}
 
 	c := controller.Collect()
-	_, err = utils.ExecShell(fmt.Sprintf(`%s -PdLocate -stop –physdrv[%s:%s] -a%s`, c.Tool, slot.EnclosureID, slot.SlotID, slot.ControllerID))
+	_, err = utils.ExecShell(fmt.Sprintf(`%s -PdLocate -stop -physdrv[%s:%s] -a%s`, c.Tool, slot.EnclosureID, slot.SlotID, slot.ControllerID))
 	return err
 }
