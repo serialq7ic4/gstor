@@ -22,6 +22,20 @@ SMART overall-health self-assessment test result: PASSED
 	if summary.ReallocatedSectors != "2" || summary.PendingSectors != "1" || summary.UDMACRCErrors != "7" {
 		t.Fatalf("unexpected sata attributes: %+v", summary)
 	}
+	if summary.TemperatureC != "34" {
+		t.Fatalf("unexpected temperature: %+v", summary)
+	}
+}
+
+func TestParseSmartSummaryAnnotatedTemperature(t *testing.T) {
+	output := `
+190 Airflow_Temperature_Cel 072 058 045 Old_age Always - 28 (Min/Max 24/32)
+194 Temperature_Celsius     040   052   000    Old_age   Always       -       40 (0 18 0 0 0)
+`
+	summary := ParseSmartSummary("sdb", output)
+	if summary.TemperatureC != "40" {
+		t.Fatalf("expected annotated temperature to parse as 40, got %+v", summary)
+	}
 }
 
 func TestParseSmartSummaryNVMe(t *testing.T) {

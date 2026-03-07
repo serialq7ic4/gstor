@@ -76,7 +76,7 @@ func parseSmartAttribute(line string, summary *SmartSummary) {
 	}
 
 	attributeName := fields[1]
-	rawValue := fields[len(fields)-1]
+	rawValue := smartAttributeRawValue(fields)
 	switch attributeName {
 	case "Power_On_Hours", "Power_On_Hours_and_Msec":
 		summary.PowerOnHours = rawValue
@@ -93,6 +93,13 @@ func parseSmartAttribute(line string, summary *SmartSummary) {
 	case "UDMA_CRC_Error_Count":
 		summary.UDMACRCErrors = rawValue
 	}
+}
+
+func smartAttributeRawValue(fields []string) string {
+	if len(fields) >= 9 {
+		return strings.Trim(fields[8], "(),")
+	}
+	return strings.Trim(fields[len(fields)-1], "(),")
 }
 
 func extractBracketValue(line string, prefix string) string {
