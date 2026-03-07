@@ -56,6 +56,7 @@ gstor init
 # 查看关键 SMART 信息（支持盘符或槽位）
 gstor smart sda
 gstor smart 0:24:15
+gstor smart -v 0:24:15
 gstor smart -f json nvme0n1
 
 # 启动轻量 Web 页面
