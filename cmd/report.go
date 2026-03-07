@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/chenq7an/gstor/common/block"
@@ -45,7 +46,8 @@ var reportCmd = &cobra.Command{
 		}
 		devices := disk.Collect()
 		for _, v := range devices {
-			if v.MediaError > "0" {
+			mediaError, err := strconv.Atoi(v.MediaError)
+			if err == nil && mediaError > 0 {
 				s = append(s, v.Capacity+"_"+v.PDType+"_"+v.MediaType+"_"+v.Name+"_mediaerror_"+v.MediaError)
 			} else if v.State == "Failed" || v.State == "Offline" || v.State == "Unconfigured(bad)" {
 				s = append(s, v.Capacity+"_"+v.PDType+"_"+v.MediaType+"_"+v.Name+"_"+v.State)
