@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"text/template"
 
@@ -59,9 +60,15 @@ func handleLocate(turnOn bool) http.HandlerFunc {
 		if turnOn {
 			prefix = "/disks/locate/on/"
 		}
-		slot := strings.TrimPrefix(r.URL.Path, prefix)
-		if slot == "" || slot == r.URL.Path {
+		rawSlot := strings.TrimPrefix(r.URL.Path, prefix)
+		if rawSlot == "" || rawSlot == r.URL.Path {
 			http.Error(w, "missing slot", http.StatusBadRequest)
+			return
+		}
+
+		slot, err := url.PathUnescape(rawSlot)
+		if err != nil {
+			http.Error(w, "invalid slot", http.StatusBadRequest)
 			return
 		}
 
