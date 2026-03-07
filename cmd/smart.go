@@ -37,21 +37,21 @@ var smartCmd = &cobra.Command{
 			cobra.CheckErr(fmt.Errorf("failed to get verbose flag: %w", err))
 		}
 
-		device, slot, err := resolveSmartDevice(args[0])
+		readTarget, err := resolveSmartReadTarget(args[0])
 		if err != nil {
 			cobra.CheckErr(err)
 		}
 
-		output, err := utils.ExecShell(fmt.Sprintf(`smartctl -i -H -A /dev/%s`, device))
+		output, err := utils.ExecShell(readTarget.ReadCommand)
 		if err != nil {
-			cobra.CheckErr(fmt.Errorf("failed to read smart info for %s: %w", device, err))
+			cobra.CheckErr(fmt.Errorf("failed to read smart info for %s: %w", readTarget.DeviceLabel, err))
 		}
 
 		response := smartResponse{
 			RequestedTarget: args[0],
-			ResolvedDevice:  device,
-			Slot:            slot,
-			Summary:         block.ParseSmartSummary(device, output),
+			ResolvedDevice:  readTarget.DeviceLabel,
+			Slot:            readTarget.Slot,
+			Summary:         block.ParseSmartSummary(readTarget.DeviceLabel, output),
 		}
 		if verbose {
 			response.RawOutput = output
@@ -73,27 +73,6 @@ var smartCmd = &cobra.Command{
 			fmt.Println(output)
 		}
 	},
-}
-
-func resolveSmartDevice(target string) (string, string, error) {
-	if slot, err := block.ParseSlotID(target); err == nil {
-		collector, err := block.Devices()
-		if err != nil {
-			return "", "", err
-		}
-		for _, device := range collector.Collect() {
-			if device.CES != slot.String() {
-				continue
-			}
-			if device.Name == "" || device.Name == "Nil" {
-				return "", slot.String(), fmt.Errorf("slot %s is not mapped to a readable device node", slot.String())
-			}
-			return strings.TrimPrefix(device.Name, "/dev/"), slot.String(), nil
-		}
-		return "", slot.String(), fmt.Errorf("slot %s not found", slot.String())
-	}
-
-	return strings.TrimPrefix(strings.TrimSpace(target), "/dev/"), "", nil
 }
 
 func printSmartSummary(response smartResponse) {
