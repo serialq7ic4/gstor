@@ -96,6 +96,9 @@ func parseSmartAttribute(line string, summary *SmartSummary) {
 }
 
 func smartAttributeRawValue(fields []string) string {
+	if len(fields) >= 10 && strings.HasPrefix(strings.ToLower(fields[2]), "0x") {
+		return strings.Trim(fields[9], "(),")
+	}
 	if len(fields) >= 9 {
 		return strings.Trim(fields[8], "(),")
 	}

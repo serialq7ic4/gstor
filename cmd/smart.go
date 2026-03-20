@@ -42,7 +42,7 @@ var smartCmd = &cobra.Command{
 			cobra.CheckErr(err)
 		}
 
-		output, err := utils.ExecShell(readTarget.ReadCommand)
+		output, err := executeSmartReadCommand(readTarget.ReadCommand)
 		if err != nil {
 			cobra.CheckErr(fmt.Errorf("failed to read smart info for %s: %w", readTarget.DeviceLabel, err))
 		}
@@ -118,6 +118,24 @@ func formatTemperature(value string) string {
 		return value
 	}
 	return value + " C"
+}
+
+func executeSmartReadCommand(command string) (string, error) {
+	result, err := utils.ExecShellResult(command)
+	if err == nil {
+		return result.Output, nil
+	}
+	if smartCommandHasUsableOutput(result.ExitCode, result.Output) {
+		return result.Output, nil
+	}
+	return "", err
+}
+
+func smartCommandHasUsableOutput(exitCode int, output string) bool {
+	if strings.TrimSpace(output) == "" {
+		return false
+	}
+	return exitCode >= 0 && exitCode&0x3 == 0
 }
 
 func init() {

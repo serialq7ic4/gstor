@@ -38,6 +38,28 @@ func TestParseSmartSummaryAnnotatedTemperature(t *testing.T) {
 	}
 }
 
+func TestParseSmartSummaryMegaraidAttributeTable(t *testing.T) {
+	output := `
+Device Model:     HGST HUS728T8TALE6L4
+Serial Number:    VY1VWW7M
+SMART overall-health self-assessment test result: PASSED
+  5 Reallocated_Sector_Ct   0x0033   100   100   005    Pre-fail  Always       -       0
+  9 Power_On_Hours          0x0012   100   100   000    Old_age   Always       -       6397
+ 12 Power_Cycle_Count       0x0032   100   100   000    Old_age   Always       -       33
+194 Temperature_Celsius     0x0002   214   214   000    Old_age   Always       -       28 (Min/Max 25/42)
+197 Current_Pending_Sector  0x0022   100   100   000    Old_age   Always       -       0
+198 Offline_Uncorrectable   0x0008   100   100   000    Old_age   Offline      -       0
+199 UDMA_CRC_Error_Count    0x000a   200   200   000    Old_age   Always       -       0
+`
+	summary := ParseSmartSummary("megaraid:6@/dev/bus/0", output)
+	if summary.PowerOnHours != "6397" || summary.PowerCycles != "33" {
+		t.Fatalf("unexpected megaraid counters: %+v", summary)
+	}
+	if summary.TemperatureC != "28" {
+		t.Fatalf("unexpected megaraid temperature: %+v", summary)
+	}
+}
+
 func TestParseSmartSummaryNVMe(t *testing.T) {
 	output := `
 Model Number:                       MICRON_7400_MTFDKBA1T9TDQ
