@@ -3,6 +3,8 @@ package block
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -161,9 +163,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 			// 如果 targetId 和 sequenceNum 都找到了，执行查找
 			if targetId != "" && sequenceNum != "" {
-				disk.Name = strings.Trim(execMegacliCommand(fmt.Sprintf(
-					`ls -l /dev/disk/by-path/ | grep -E "pci-0000:%s:00.0-scsi-[0-9]:%s:%s:[0-9] " | awk -F/ '{print $NF}'`,
-					busNumber, sequenceNum, targetId)), "\n")
+				disk.Name = resolveMegacliDeviceNameByPathDir("/dev/disk/by-path", busNumber, sequenceNum, targetId)
 			}
 		}
 	}
@@ -235,4 +235,68 @@ func (m *megacliCollector) TurnOff(id string) error {
 	c := controller.Collect()
 	_, err = utils.ExecShell(fmt.Sprintf(`%s -PdLocate -stop -physdrv[%s:%s] -a%s`, c.Tool, slot.EnclosureID, slot.SlotID, slot.ControllerID))
 	return err
+}
+
+func resolveMegacliDeviceNameByPathDir(dir string, busNumber string, sequenceNum string, targetID string) string {
+	if busNumber == "" || targetID == "" {
+		return ""
+	}
+
+	patterns := make([]string, 0, 2)
+	if sequenceNum != "" {
+		patterns = append(patterns, fmt.Sprintf(`^pci-0000:%s:00\.0-scsi-[0-9]+:%s:%s:[0-9]+$`,
+			regexp.QuoteMeta(busNumber), regexp.QuoteMeta(sequenceNum), regexp.QuoteMeta(targetID)))
+	}
+	// Some controllers report a Sequence Number that does not match the by-path
+	// channel component. Fall back to the stable Target Id if the exact match fails.
+	patterns = append(patterns, fmt.Sprintf(`^pci-0000:%s:00\.0-scsi-[0-9]+:[0-9]+:%s:[0-9]+$`,
+		regexp.QuoteMeta(busNumber), regexp.QuoteMeta(targetID)))
+
+	for _, pattern := range patterns {
+		if name := resolveDeviceNameByPathPattern(dir, pattern); name != "" {
+			return name
+		}
+	}
+	return ""
+}
+
+func resolveDeviceNameByPathPattern(dir string, pattern string) string {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return ""
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+
+	seen := make(map[string]struct{})
+	matches := make([]string, 0, 1)
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.Contains(name, "-part") || !re.MatchString(name) {
+			continue
+		}
+
+		resolvedPath, err := filepath.EvalSymlinks(filepath.Join(dir, name))
+		if err != nil {
+			continue
+		}
+
+		deviceName := filepath.Base(resolvedPath)
+		if deviceName == "" {
+			continue
+		}
+		if _, ok := seen[deviceName]; ok {
+			continue
+		}
+		seen[deviceName] = struct{}{}
+		matches = append(matches, deviceName)
+	}
+
+	if len(matches) == 1 {
+		return matches[0]
+	}
+	return ""
 }
