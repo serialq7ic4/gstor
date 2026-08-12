@@ -75,7 +75,7 @@ func arcconf(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		case strings.Contains(v, "Total Size"):
 			size := strings.Trim(strings.Split(strings.Trim(strings.Split(v, ":")[1], " "), " ")[0], " ")
 			sizeofMB, _ := strconv.Atoi(size)
-			disk.Capacity = strings.Replace(formatDiskSize(sizeofMB/1000*1024*1024), ".00", "", -1)
+			disk.Capacity = strings.ReplaceAll(formatDiskSize(sizeofMB/1000*1024*1024), ".00", "")
 		case strings.Contains(v, "No"):
 			disk.MediaType = "HDD"
 		case strings.Contains(v, "Yes"):

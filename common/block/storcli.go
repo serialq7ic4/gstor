@@ -190,12 +190,6 @@ func (m *storcliCollector) TurnOn(id string) error {
 	return err
 }
 
-func discoverStorcliDeviceIDs(tool string, controllerID int) []string {
-	eallOutput := execStorcliDiscoveryCommand(fmt.Sprintf(`%s /c%d/eall/sall show`, tool, controllerID))
-	sallOutput := execStorcliDiscoveryCommand(fmt.Sprintf(`%s /c%d/sall show`, tool, controllerID))
-	return discoverStorcliDeviceIDsFromOutputs(eallOutput, sallOutput, controllerID)
-}
-
 func loadStorcliControllerSnapshot(tool string, controllerID int) storcliControllerSnapshot {
 	eallOutput := execStorcliDiscoveryCommand(fmt.Sprintf(`%s /c%d/eall/sall show all`, tool, controllerID))
 	snapshot := parseStorcliControllerSnapshot(eallOutput, controllerID)
@@ -318,7 +312,7 @@ func applyStorcliControllerLine(disk *Disk, line string) {
 		sectors := strings.Split(strings.Trim(strings.Split(strings.Trim(strings.Split(line, "[")[1], " "), " ")[0], " "), " ")[0]
 		blocks, err := strconv.ParseInt(sectors, 0, 64)
 		if err == nil {
-			disk.Capacity = strings.Replace(formatBlockSize(int(blocks)*512), ".00", "", -1)
+			disk.Capacity = strings.ReplaceAll(formatBlockSize(int(blocks)*512), ".00", "")
 		}
 	}
 }

@@ -93,7 +93,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	for _, file := range fileList {
 		switch {
 		case strings.Contains(file.Name(), "host"):
-			scsiBusNumber = strings.Replace(file.Name(), "host", "", -1)
+			scsiBusNumber = strings.ReplaceAll(file.Name(), "host", "")
 		}
 	}
 
@@ -116,7 +116,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 		case strings.Contains(v, "Product"):
 			disk.Model = strings.Trim(strings.Split(v, ":")[1], " ")
 		case strings.Contains(v, "User Capacity"):
-			disk.Capacity = strings.Replace(strings.Split(strings.Trim(strings.Split(v, "[")[1], " "), "]")[0], ".00 ", " ", -1)
+			disk.Capacity = strings.ReplaceAll(strings.Split(strings.Trim(strings.Split(v, "[")[1], " "), "]")[0], ".00 ", " ")
 		case strings.Contains(strings.ToLower(v), strings.ToLower("Serial Number")):
 			disk.SerialNumber = strings.Trim(strings.Split(v, ":")[1], " ")
 		}

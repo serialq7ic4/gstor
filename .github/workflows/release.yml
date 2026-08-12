@@ -1,3 +1,5 @@
+name: Release
+
 on:
   release:
     types: [created]
@@ -12,7 +14,7 @@ jobs:
         goos: [linux]
         goarch: [amd64, arm64]
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0  # 获取完整 git 历史以获取 commit hash
     - name: Set version info
@@ -25,7 +27,7 @@ jobs:
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "build_time=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
         echo "git_commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-    - uses: wangyoucao577/go-release-action@v1.35
+    - uses: wangyoucao577/go-release-action@v1.55
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         goos: ${{ matrix.goos }}

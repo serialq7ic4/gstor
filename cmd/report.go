@@ -81,7 +81,11 @@ var reportCmd = &cobra.Command{
 		if err != nil {
 			cobra.CheckErr(fmt.Errorf("failed to send HTTP request: %w", err))
 		}
-		defer response.Body.Close()
+		defer func() {
+			if err := response.Body.Close(); err != nil {
+				fmt.Printf("failed to close response body: %v\n", err)
+			}
+		}()
 		fmt.Println("response Status:", response.Status)
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
