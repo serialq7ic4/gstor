@@ -14,6 +14,7 @@ Gstor 是一个使用 Cobra 构建的命令行工具，面向 Linux 服务器的
 - 故障盘定位灯开关
 - 新盘制作 RAID0
 - 故障盘信息上报
+- 安全裸盘 fio benchmark 基线采集
 - 通过轻量 Web 页面展示磁盘状态
 
 当前代码中实际支持的 RAID 工具/设备路径包括：
@@ -59,6 +60,11 @@ gstor smart 0:24:15
 gstor smart -v 0:24:15
 gstor smart -f json nvme0n1
 
+# 执行裸盘 benchmark，stdout 输出最终 JSON，进度和跳过原因输出到 stderr
+gstor benchmark run
+gstor benchmark run -p short -D sdb -o /tmp/gstor-benchmark.json
+gstor benchmark run --report-url https://collector.example/api/v1/benchmark/results
+
 # 启动轻量 Web 页面
 gstor server -p 9100
 ```
@@ -71,6 +77,20 @@ gstor --debug locate on 0:1:2
 ```
 
 更多说明见 `docs/DEBUG_MODE.md`。
+
+# Benchmark 说明
+
+`gstor benchmark run` 只会对 eligible bare disk 执行 fio。运行前会强制检查 root 权限与 `fio`、`lsblk`、`blkid`、`findmnt`、`fuser`、`smartctl` 依赖；依赖缺失或裸盘安全检查失败时不会启动 fio。
+
+支持参数：
+
+- `-p, --profile`：`default` 或 `short`，默认 `default`
+- `-D, --disk`：指定一个或多个裸盘；不指定时自动扫描 eligible bare disks
+- `-o, --output`：额外写本地 JSON 文件
+- `-f, --format`：输出格式，目前仅支持 `json`
+- `-r, --report-url`：额外上报中心 API，按完成硬盘逐块 POST
+
+输出边界：stdout 只输出最终 JSON，stderr 输出计划、进度、跳过原因和错误上下文。最终 JSON 与上报请求只包含完整完成的硬盘结果，不包含 skipped disks。
 
 # 本地开发
 
