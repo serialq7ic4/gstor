@@ -1,6 +1,31 @@
 package benchmark
 
-import "testing"
+import (
+	"context"
+	"errors"
+	"reflect"
+	"testing"
+)
+
+type fakeCommandRunner struct {
+	results []fakeCommandResult
+	calls   [][]string
+}
+
+type fakeCommandResult struct {
+	result CommandResult
+	err    error
+}
+
+func (r *fakeCommandRunner) Run(ctx context.Context, name string, args ...string) (CommandResult, error) {
+	r.calls = append(r.calls, append([]string{name}, args...))
+	if len(r.results) == 0 {
+		return CommandResult{}, nil
+	}
+	result := r.results[0]
+	r.results = r.results[1:]
+	return result.result, result.err
+}
 
 func TestDiscoverEligibleDisksFromLSBLKExcludesUnsafeDevices(t *testing.T) {
 	input := []byte(`{
@@ -109,5 +134,90 @@ func TestDiscoverEligibleDisksFromLSBLKResolvesExplicitDisks(t *testing.T) {
 	_, _, err = DiscoverEligibleDisksFromLSBLK(input, []string{"missing"})
 	if err == nil {
 		t.Fatal("missing explicit disk should return error")
+	}
+}
+
+func TestDiscoverEligibleDisksFromLSBLKPairsSupportsCentOS7Output(t *testing.T) {
+	input := []byte(`NAME="sda" KNAME="sda" TYPE="disk" FSTYPE="" MOUNTPOINT="" ROTA="1" TRAN="" MODEL="PERC H730P" SERIAL="" SIZE="239444426752" RO="0" PKNAME="" REV="" VENDOR="DELL"
+NAME="sda1" KNAME="sda1" TYPE="part" FSTYPE="xfs" MOUNTPOINT="/boot" ROTA="1" TRAN="" MODEL="" SERIAL="" SIZE="1073741824" RO="0" PKNAME="sda" REV="" VENDOR=""
+NAME="sdb" KNAME="sdb" TYPE="disk" FSTYPE="" MOUNTPOINT="" ROTA="1" TRAN="" MODEL="PERC H730P" SERIAL="SDB123" SIZE="959656755200" RO="0" PKNAME="" REV="1.0" VENDOR="DELL"
+NAME="sdc" KNAME="sdc" TYPE="disk" FSTYPE="" MOUNTPOINT="" ROTA="1" TRAN="" MODEL="PERC H730P" SERIAL="SDC123" SIZE="959656755200" RO="0" PKNAME="" REV="1.0" VENDOR="DELL"
+NAME="sdc1" KNAME="sdc1" TYPE="part" FSTYPE="ext4" MOUNTPOINT="/data2" ROTA="1" TRAN="" MODEL="" SERIAL="" SIZE="959654658048" RO="0" PKNAME="sdc" REV="" VENDOR=""`)
+
+	targets, skipped, err := DiscoverEligibleDisksFromLSBLKPairs(input, []string{"sdb"})
+	if err != nil {
+		t.Fatalf("DiscoverEligibleDisksFromLSBLKPairs returned error: %v", err)
+	}
+	if len(skipped) != 0 {
+		t.Fatalf("explicit eligible disk should not produce skips: %+v", skipped)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("targets = %+v, want one target", targets)
+	}
+	if targets[0].Name != "sdb" || targets[0].DevicePath != "/dev/sdb" {
+		t.Fatalf("unexpected target identity: %+v", targets[0])
+	}
+	if targets[0].MediaType != "HDD" || targets[0].InterfaceType != "UNKNOWN" {
+		t.Fatalf("unexpected target media/interface: %+v", targets[0])
+	}
+
+	allTargets, allSkipped, err := DiscoverEligibleDisksFromLSBLKPairs(input, nil)
+	if err != nil {
+		t.Fatalf("DiscoverEligibleDisksFromLSBLKPairs all returned error: %v", err)
+	}
+	if len(allTargets) != 1 || allTargets[0].Name != "sdb" {
+		t.Fatalf("all targets = %+v, want only sdb", allTargets)
+	}
+	wantSkipped := map[string]string{
+		"sda": "has child block devices",
+		"sdc": "has child block devices",
+	}
+	for _, skippedDisk := range allSkipped {
+		if wantSkipped[skippedDisk.Name] != skippedDisk.Reason {
+			t.Fatalf("skip reason for %s = %q, want %q", skippedDisk.Name, skippedDisk.Reason, wantSkipped[skippedDisk.Name])
+		}
+		delete(wantSkipped, skippedDisk.Name)
+	}
+	if len(wantSkipped) != 0 {
+		t.Fatalf("missing skipped disks: %+v", wantSkipped)
+	}
+}
+
+func TestDiscoverEligibleDisksFallsBackToPairsWhenJSONUnsupported(t *testing.T) {
+	runner := &fakeCommandRunner{
+		results: []fakeCommandResult{
+			{
+				result: CommandResult{Stderr: "lsblk: invalid option -- 'J'", ExitCode: 1},
+				err:    errors.New("exit status 1"),
+			},
+			{
+				result: CommandResult{Stdout: `NAME="sdb" KNAME="sdb" TYPE="disk" FSTYPE="" MOUNTPOINT="" ROTA="1" TRAN="" MODEL="PERC H730P" SERIAL="SDB123" SIZE="959656755200" RO="0" PKNAME="" REV="1.0" VENDOR="DELL"`},
+			},
+		},
+	}
+
+	targets, skipped, err := DiscoverEligibleDisks(context.Background(), Inspector{
+		Runner:       runner,
+		SysBlockRoot: t.TempDir(),
+	}, []string{"sdb"})
+	if err != nil {
+		t.Fatalf("DiscoverEligibleDisks returned error: %v", err)
+	}
+	if len(skipped) != 0 {
+		t.Fatalf("skipped = %+v, want none", skipped)
+	}
+	if len(targets) != 1 || targets[0].Name != "sdb" {
+		t.Fatalf("targets = %+v, want sdb", targets)
+	}
+
+	wantCalls := [][]string{
+		{"lsblk", "-J", "-O", "-b"},
+		{"lsblk", "-b", "-P", "-o", "NAME,KNAME,TYPE,FSTYPE,MOUNTPOINT,ROTA,TRAN,MODEL,SERIAL,SIZE,RO,PKNAME,REV,VENDOR"},
+		{"blkid", "/dev/sdb"},
+		{"findmnt", "-rn", "--source", "/dev/sdb"},
+		{"fuser", "/dev/sdb"},
+	}
+	if !reflect.DeepEqual(runner.calls, wantCalls) {
+		t.Fatalf("calls = %#v, want %#v", runner.calls, wantCalls)
 	}
 }

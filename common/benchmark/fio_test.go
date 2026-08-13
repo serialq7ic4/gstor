@@ -28,7 +28,6 @@ func TestRenderFIOJobIncludesProfileCasesAndSafetyDefaults(t *testing.T) {
 		"time_based=1",
 		"runtime=60",
 		"ramp_time=10",
-		"output-format=json",
 		"percentile_list=50:90:95:99:99.9",
 		"[latency_probe_randread_4k]",
 		"filename=/dev/nvme0n1",
@@ -49,6 +48,10 @@ func TestRenderFIOJobIncludesProfileCasesAndSafetyDefaults(t *testing.T) {
 		if !strings.Contains(job, token) {
 			t.Fatalf("job file missing %q:\n%s", token, job)
 		}
+	}
+
+	if strings.Contains(job, "output-format=json") {
+		t.Fatalf("job file should not contain output-format=json because fio 3.7 only accepts it as a CLI option:\n%s", job)
 	}
 }
 

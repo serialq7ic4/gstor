@@ -31,7 +31,6 @@ func RenderFIOJob(profile Profile, disk DiskTarget) (string, error) {
 	builder.WriteString("randrepeat=0\n")
 	builder.WriteString("refill_buffers=1\n")
 	builder.WriteString("group_reporting=1\n")
-	builder.WriteString("output-format=json\n")
 	builder.WriteString("percentile_list=50:90:95:99:99.9\n\n")
 
 	for _, c := range profile.Cases {

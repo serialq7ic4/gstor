@@ -250,7 +250,7 @@ func (r RealFIORunner) RunFIO(ctx context.Context, profile Profile, disk DiskTar
 		return nil, fmt.Errorf("failed to close fio job file: %w", err)
 	}
 
-	result, err := runner.Run(ctx, "fio", jobPath)
+	result, err := runner.Run(ctx, "fio", "--output-format=json", jobPath)
 	if err != nil {
 		return nil, fmt.Errorf("fio failed for %s: %w: %s", disk.DevicePath, err, result.Stderr)
 	}

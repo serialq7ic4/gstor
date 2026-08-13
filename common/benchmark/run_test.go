@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -115,5 +116,37 @@ func TestRunBenchmarkWritesOutputAndReportsCompletedDisks(t *testing.T) {
 	}
 	if len(data) == 0 || data[0] != '{' {
 		t.Fatalf("output file does not contain JSON object: %q", string(data))
+	}
+}
+
+func TestRealFIORunnerPassesOutputFormatOnCommandLine(t *testing.T) {
+	profile, err := SelectProfile("short")
+	if err != nil {
+		t.Fatalf("SelectProfile(short): %v", err)
+	}
+	runner := &fakeCommandRunner{
+		results: []fakeCommandResult{{
+			result: CommandResult{Stdout: `{"jobs":[]}`},
+		}},
+	}
+
+	_, err = RealFIORunner{Runner: runner, TempDir: t.TempDir()}.RunFIO(context.Background(), profile, DiskTarget{
+		Name:          "sdb",
+		DevicePath:    "/dev/sdb",
+		MediaType:     "HDD",
+		InterfaceType: "UNKNOWN",
+	})
+	if err != nil {
+		t.Fatalf("RunFIO returned error: %v", err)
+	}
+	if len(runner.calls) != 1 {
+		t.Fatalf("calls = %#v, want one fio call", runner.calls)
+	}
+	call := runner.calls[0]
+	if len(call) != 3 {
+		t.Fatalf("fio call = %#v, want fio --output-format=json <jobfile>", call)
+	}
+	if !reflect.DeepEqual(call[:2], []string{"fio", "--output-format=json"}) {
+		t.Fatalf("fio call prefix = %#v, want fio --output-format=json", call[:2])
 	}
 }

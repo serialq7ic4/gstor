@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -76,10 +77,24 @@ func DiscoverEligibleDisks(ctx context.Context, inspector Inspector, explicit []
 
 	result, err := inspector.Runner.Run(ctx, "lsblk", "-J", "-O", "-b")
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to run lsblk: %w: %s", err, result.Stderr)
+		pairResult, pairErr := inspector.Runner.Run(ctx, "lsblk", "-b", "-P", "-o", "NAME,KNAME,TYPE,FSTYPE,MOUNTPOINT,ROTA,TRAN,MODEL,SERIAL,SIZE,RO,PKNAME,REV,VENDOR")
+		if pairErr != nil {
+			return nil, nil, fmt.Errorf("failed to run lsblk JSON: %w: %s; failed to run lsblk pairs: %w: %s", err, result.Stderr, pairErr, pairResult.Stderr)
+		}
+		return eligibleDisksWithExtraSafety(ctx, inspector, []byte(pairResult.Stdout), explicit, DiscoverEligibleDisksFromLSBLKPairs)
 	}
 
-	targets, skipped, err := DiscoverEligibleDisksFromLSBLK([]byte(result.Stdout), explicit)
+	return eligibleDisksWithExtraSafety(ctx, inspector, []byte(result.Stdout), explicit, DiscoverEligibleDisksFromLSBLK)
+}
+
+func eligibleDisksWithExtraSafety(
+	ctx context.Context,
+	inspector Inspector,
+	data []byte,
+	explicit []string,
+	parser func([]byte, []string) ([]DiskTarget, []SkippedDisk, error),
+) ([]DiskTarget, []SkippedDisk, error) {
+	targets, skipped, err := parser(data, explicit)
 	if err != nil {
 		return nil, skipped, err
 	}
@@ -127,6 +142,70 @@ func DiscoverEligibleDisksFromLSBLK(data []byte, explicit []string) ([]DiskTarge
 		return nil, nil, fmt.Errorf("failed to parse lsblk JSON: %w", err)
 	}
 
+	return eligibleDisksFromDevices(document.BlockDevices, explicit)
+}
+
+func DiscoverEligibleDisksFromLSBLKPairs(data []byte, explicit []string) ([]DiskTarget, []SkippedDisk, error) {
+	rows := strings.Split(strings.TrimSpace(string(data)), "\n")
+	devicesByName := make(map[string]lsblkDevice)
+	var diskOrder []string
+	childrenByParent := make(map[string][]lsblkDevice)
+
+	for _, row := range rows {
+		fields := parseLSBLKPairs(row)
+		if len(fields) == 0 {
+			continue
+		}
+		device := lsblkDevice{
+			Name:       firstNonEmpty(fields["KNAME"], fields["NAME"]),
+			Type:       fields["TYPE"],
+			Tran:       fields["TRAN"],
+			Rota:       parseBoolPointer(fields["ROTA"]),
+			Size:       json.Number(fields["SIZE"]),
+			Serial:     fields["SERIAL"],
+			Vendor:     fields["VENDOR"],
+			Model:      fields["MODEL"],
+			Firmware:   fields["REV"],
+			FSType:     fields["FSTYPE"],
+			MountPoint: fields["MOUNTPOINT"],
+			ReadOnly:   fields["RO"],
+		}
+		if device.Name == "" {
+			continue
+		}
+
+		parent := fields["PKNAME"]
+		if device.Type == "disk" {
+			devicesByName[device.Name] = device
+			diskOrder = append(diskOrder, device.Name)
+			continue
+		}
+		if parent != "" {
+			childrenByParent[parent] = append(childrenByParent[parent], device)
+		}
+	}
+
+	devices := make([]lsblkDevice, 0, len(diskOrder))
+	for _, name := range diskOrder {
+		device := devicesByName[name]
+		device.Children = childrenByParent[name]
+		devices = append(devices, device)
+	}
+
+	return eligibleDisksFromDevices(devices, explicit)
+}
+
+var lsblkPairPattern = regexp.MustCompile(`([A-Z0-9:_-]+)="([^"]*)"`)
+
+func parseLSBLKPairs(row string) map[string]string {
+	fields := make(map[string]string)
+	for _, match := range lsblkPairPattern.FindAllStringSubmatch(row, -1) {
+		fields[match[1]] = match[2]
+	}
+	return fields
+}
+
+func eligibleDisksFromDevices(devices []lsblkDevice, explicit []string) ([]DiskTarget, []SkippedDisk, error) {
 	explicitSet := make(map[string]bool, len(explicit))
 	for _, disk := range explicit {
 		normalized := normalizeDiskSelector(disk)
@@ -137,7 +216,7 @@ func DiscoverEligibleDisksFromLSBLK(data []byte, explicit []string) ([]DiskTarge
 
 	var targets []DiskTarget
 	var skipped []SkippedDisk
-	for _, device := range document.BlockDevices {
+	for _, device := range devices {
 		if len(explicitSet) > 0 {
 			_, wantName := explicitSet[device.Name]
 			_, wantPath := explicitSet[normalizeDiskSelector(device.Path)]
@@ -166,6 +245,28 @@ func DiscoverEligibleDisksFromLSBLK(data []byte, explicit []string) ([]DiskTarge
 	}
 
 	return targets, skipped, nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func parseBoolPointer(value string) *bool {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case "1", "true":
+		parsed := true
+		return &parsed
+	case "0", "false":
+		parsed := false
+		return &parsed
+	default:
+		return nil
+	}
 }
 
 func normalizeDiskSelector(value string) string {
