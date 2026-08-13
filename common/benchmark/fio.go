@@ -49,10 +49,10 @@ func RenderFIOJob(profile Profile, disk DiskTarget) (string, error) {
 		builder.WriteString("bs=")
 		builder.WriteString(c.BlockSize)
 		builder.WriteString("\n")
-		builder.WriteString(fmt.Sprintf("numjobs=%d\n", pressure.NumJobs))
-		builder.WriteString(fmt.Sprintf("iodepth=%d\n", pressure.IODepth))
+		_, _ = fmt.Fprintf(&builder, "numjobs=%d\n", pressure.NumJobs)
+		_, _ = fmt.Fprintf(&builder, "iodepth=%d\n", pressure.IODepth)
 		if c.RWMixRead > 0 {
-			builder.WriteString(fmt.Sprintf("rwmixread=%d\n", c.RWMixRead))
+			_, _ = fmt.Fprintf(&builder, "rwmixread=%d\n", c.RWMixRead)
 		}
 		if c.Offset != "" {
 			builder.WriteString("offset=")
