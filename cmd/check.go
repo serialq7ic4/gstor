@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/chenq7an/gstor/common/benchmark"
 	"github.com/chenq7an/gstor/common/controller"
 
 	"github.com/spf13/cobra"
@@ -19,6 +20,16 @@ var checkCmd = &cobra.Command{
 func showController(cmd *cobra.Command, args []string) {
 	ctrl := controller.Collect()
 	fmt.Printf("存储控制器: %s\n命令行工具: %s\n工具已安装: %t\n", ctrl.Name, ctrl.Tool, ctrl.Avail)
+
+	report := benchmark.CheckRequirements(benchmark.SystemProbe{})
+	fmt.Printf("Benchmark 条件满足: %t\nRoot 权限: %t\n", report.Ready, report.Root)
+	for _, dep := range report.Dependencies {
+		fmt.Printf("Benchmark 依赖 %-8s: %t", dep.Name, dep.Available)
+		if dep.Path != "" {
+			fmt.Printf(" (%s)", dep.Path)
+		}
+		fmt.Println()
+	}
 }
 
 func init() {
