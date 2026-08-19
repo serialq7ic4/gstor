@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +12,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 )
 
 type SkippedDisk struct {
@@ -32,13 +35,47 @@ type CommandRunner interface {
 type SystemRunner struct{}
 
 func (SystemRunner) Run(ctx context.Context, name string, args ...string) (CommandResult, error) {
-	command := exec.CommandContext(ctx, name, args...)
+	command := exec.Command(name, args...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	command.Stdout = &stdout
 	command.Stderr = &stderr
+	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	err := command.Run()
+	if err := command.Start(); err != nil {
+		return CommandResult{ExitCode: -1}, err
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- command.Wait()
+	}()
+
+	var err error
+	select {
+	case err = <-done:
+	case <-ctx.Done():
+		pid := command.Process.Pid
+		_ = syscall.Kill(-pid, syscall.SIGTERM)
+
+		timer := time.NewTimer(10 * time.Second)
+		select {
+		case err = <-done:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+		case <-timer.C:
+			_ = syscall.Kill(-pid, syscall.SIGKILL)
+			err = <-done
+		}
+		if ctx.Err() != nil {
+			err = ctx.Err()
+		}
+	}
+
 	result := CommandResult{
 		Stdout: strings.TrimRight(stdout.String(), "\n"),
 		Stderr: strings.TrimRight(stderr.String(), "\n"),
@@ -56,14 +93,16 @@ func (SystemRunner) Run(ctx context.Context, name string, args ...string) (Comma
 }
 
 type Inspector struct {
-	Runner       CommandRunner
-	SysBlockRoot string
+	Runner             CommandRunner
+	SysBlockRoot       string
+	SafetyCheckTimeout time.Duration
 }
 
 func NewSystemInspector() Inspector {
 	return Inspector{
-		Runner:       SystemRunner{},
-		SysBlockRoot: "/sys/block",
+		Runner:             SystemRunner{},
+		SysBlockRoot:       "/sys/block",
+		SafetyCheckTimeout: 5 * time.Second,
 	}
 }
 
@@ -429,16 +468,99 @@ func (i Inspector) extraSafetyReason(ctx context.Context, target DiskTarget) str
 	if reason := nonEmptySysDir(filepath.Join(i.SysBlockRoot, target.Name, "slaves"), "has slave devices"); reason != "" {
 		return reason
 	}
-	if commandHasOutput(ctx, i.Runner, "blkid", target.DevicePath) {
-		return "has filesystem signature"
+	if reason := i.mountedSystemDiskReason(ctx, target); reason != "" {
+		return reason
 	}
-	if commandHasOutput(ctx, i.Runner, "findmnt", "-rn", "--source", target.DevicePath) {
-		return "has mountpoint"
+	if reason := i.commandOutputReason(ctx, "has filesystem signature", "blkid", target.DevicePath); reason != "" {
+		return reason
 	}
-	if commandHasOutput(ctx, i.Runner, "fuser", target.DevicePath) {
-		return "device is in use"
+	if reason := i.commandOutputReason(ctx, "has mountpoint", "findmnt", "-rn", "--source", target.DevicePath); reason != "" {
+		return reason
+	}
+	if reason := i.commandOutputReason(ctx, "device is in use", "fuser", target.DevicePath); reason != "" {
+		return reason
+	}
+	if reason := i.storageStackReason(ctx, target); reason != "" {
+		return reason
 	}
 	return ""
+}
+
+func (i Inspector) mountedSystemDiskReason(ctx context.Context, target DiskTarget) string {
+	checks := []struct {
+		mountpoint string
+		reason     string
+	}{
+		{mountpoint: "/", reason: "contains root filesystem"},
+		{mountpoint: "/boot", reason: "contains boot filesystem"},
+		{mountpoint: "/boot/efi", reason: "contains boot filesystem"},
+	}
+
+	for _, check := range checks {
+		result, timedOut := i.runSafetyCheck(ctx, "findmnt", "-rn", "-o", "SOURCE", check.mountpoint)
+		if timedOut {
+			return "safety check timed out: findmnt"
+		}
+		if sourceBelongsToDisk(result.Stdout, target.Name) {
+			return check.reason
+		}
+	}
+	return ""
+}
+
+func (i Inspector) storageStackReason(ctx context.Context, target DiskTarget) string {
+	checks := []struct {
+		reason string
+		name   string
+		args   []string
+	}{
+		{reason: "is LVM physical volume", name: "pvs", args: []string{"--noheadings", "-o", "pv_name"}},
+		{reason: "is LVM logical volume backing device", name: "lvs", args: []string{"--noheadings", "-o", "devices"}},
+		{reason: "is listed in volume groups", name: "vgs", args: []string{"--noheadings", "-o", "vg_name"}},
+		{reason: "is used by mdraid", name: "mdadm", args: []string{"--detail", "--scan"}},
+		{reason: "has mdraid metadata", name: "mdadm", args: []string{"--examine", "--brief", target.DevicePath}},
+		{reason: "is used by device-mapper", name: "dmsetup", args: []string{"deps", "-o", "devname"}},
+		{reason: "is used by multipath", name: "multipath", args: []string{"-ll"}},
+	}
+
+	for _, check := range checks {
+		result, timedOut := i.runSafetyCheck(ctx, check.name, check.args...)
+		if timedOut {
+			return "safety check timed out: " + check.name
+		}
+		output := result.Stdout + "\n" + result.Stderr
+		if check.name == "mdadm" && len(check.args) >= 2 && check.args[0] == "--examine" && strings.Contains(output, "No md superblock") {
+			continue
+		}
+		if textReferencesDisk(output, target) {
+			return check.reason
+		}
+	}
+	return ""
+}
+
+func (i Inspector) commandOutputReason(ctx context.Context, reason string, name string, args ...string) string {
+	result, timedOut := i.runSafetyCheck(ctx, name, args...)
+	if timedOut {
+		return "safety check timed out: " + name
+	}
+	if strings.TrimSpace(result.Stdout) != "" || strings.TrimSpace(result.Stderr) != "" {
+		return reason
+	}
+	return ""
+}
+
+func (i Inspector) runSafetyCheck(ctx context.Context, name string, args ...string) (CommandResult, bool) {
+	timeout := i.SafetyCheckTimeout
+	if timeout <= 0 {
+		timeout = 5 * time.Second
+	}
+	checkCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	result, err := i.Runner.Run(checkCtx, name, args...)
+	timedOut := errors.Is(err, context.DeadlineExceeded) || errors.Is(checkCtx.Err(), context.DeadlineExceeded)
+	return result, timedOut
 }
 
 func nonEmptySysDir(path string, reason string) string {
@@ -455,7 +577,52 @@ func nonEmptySysDir(path string, reason string) string {
 	return ""
 }
 
-func commandHasOutput(ctx context.Context, runner CommandRunner, name string, args ...string) bool {
-	result, _ := runner.Run(ctx, name, args...)
-	return strings.TrimSpace(result.Stdout) != "" || strings.TrimSpace(result.Stderr) != ""
+func sourceBelongsToDisk(source string, diskName string) bool {
+	source = strings.TrimSpace(source)
+	if source == "" || diskName == "" {
+		return false
+	}
+	base := filepath.Base(strings.TrimPrefix(source, "/dev/"))
+	if base == diskName {
+		return true
+	}
+	if !strings.HasPrefix(base, diskName) {
+		return false
+	}
+	suffix := strings.TrimPrefix(base, diskName)
+	if suffix == "" {
+		return true
+	}
+	suffix = strings.TrimPrefix(suffix, "p")
+	if suffix == "" {
+		return false
+	}
+	for _, r := range suffix {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func textReferencesDisk(output string, target DiskTarget) bool {
+	if strings.TrimSpace(output) == "" {
+		return false
+	}
+	if target.DevicePath != "" && strings.Contains(output, target.DevicePath) {
+		return true
+	}
+	split := func(r rune) bool {
+		return r != '/' && r != '_' && r != '-' && r != '.' && r != ':' &&
+			(r < '0' || r > '9') &&
+			(r < 'A' || r > 'Z') &&
+			(r < 'a' || r > 'z')
+	}
+	for _, token := range strings.FieldsFunc(output, split) {
+		token = strings.Trim(token, "`'\"(),;")
+		if sourceBelongsToDisk(token, target.Name) {
+			return true
+		}
+	}
+	return false
 }

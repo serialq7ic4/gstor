@@ -3,7 +3,10 @@ package benchmark
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -213,11 +216,126 @@ func TestDiscoverEligibleDisksFallsBackToPairsWhenJSONUnsupported(t *testing.T) 
 	wantCalls := [][]string{
 		{"lsblk", "-J", "-O", "-b"},
 		{"lsblk", "-b", "-P", "-o", "NAME,KNAME,TYPE,FSTYPE,MOUNTPOINT,ROTA,TRAN,MODEL,SERIAL,SIZE,RO,PKNAME,REV,VENDOR"},
+		{"findmnt", "-rn", "-o", "SOURCE", "/"},
+		{"findmnt", "-rn", "-o", "SOURCE", "/boot"},
+		{"findmnt", "-rn", "-o", "SOURCE", "/boot/efi"},
 		{"blkid", "/dev/sdb"},
 		{"findmnt", "-rn", "--source", "/dev/sdb"},
 		{"fuser", "/dev/sdb"},
+		{"pvs", "--noheadings", "-o", "pv_name"},
+		{"lvs", "--noheadings", "-o", "devices"},
+		{"vgs", "--noheadings", "-o", "vg_name"},
+		{"mdadm", "--detail", "--scan"},
+		{"mdadm", "--examine", "--brief", "/dev/sdb"},
+		{"dmsetup", "deps", "-o", "devname"},
+		{"multipath", "-ll"},
 	}
 	if !reflect.DeepEqual(runner.calls, wantCalls) {
 		t.Fatalf("calls = %#v, want %#v", runner.calls, wantCalls)
+	}
+}
+
+type scriptedCommandRunner struct {
+	handlers map[string]func(context.Context) (CommandResult, error)
+	calls    []string
+}
+
+func (r *scriptedCommandRunner) Run(ctx context.Context, name string, args ...string) (CommandResult, error) {
+	key := strings.TrimSpace(name + " " + strings.Join(args, " "))
+	r.calls = append(r.calls, key)
+	if handler, ok := r.handlers[key]; ok {
+		return handler(ctx)
+	}
+	return CommandResult{}, nil
+}
+
+func newSafetyTestInspector(t *testing.T, runner CommandRunner, disk string) Inspector {
+	t.Helper()
+	root := t.TempDir()
+	for _, dir := range []string{"holders", "slaves"} {
+		if err := os.MkdirAll(filepath.Join(root, disk, dir), 0755); err != nil {
+			t.Fatalf("mkdir sys block fixture: %v", err)
+		}
+	}
+	return Inspector{Runner: runner, SysBlockRoot: root}
+}
+
+func TestExtraSafetyRejectsRootAndBootDisks(t *testing.T) {
+	runner := &scriptedCommandRunner{handlers: map[string]func(context.Context) (CommandResult, error){
+		"findmnt -rn -o SOURCE /": func(context.Context) (CommandResult, error) {
+			return CommandResult{Stdout: "/dev/sdb1"}, nil
+		},
+	}}
+
+	inspector := newSafetyTestInspector(t, runner, "sdb")
+	reason := inspector.extraSafetyReason(context.Background(), DiskTarget{Name: "sdb", DevicePath: "/dev/sdb"})
+	if reason != "contains root filesystem" {
+		t.Fatalf("root disk reason = %q, want contains root filesystem", reason)
+	}
+}
+
+func TestExtraSafetyRejectsStorageStackMembers(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		stdout  string
+		want    string
+	}{
+		{
+			name:    "lvm physical volume",
+			command: "pvs --noheadings -o pv_name",
+			stdout:  "  /dev/sdb\n",
+			want:    "is LVM physical volume",
+		},
+		{
+			name:    "mdraid member",
+			command: "mdadm --examine --brief /dev/sdb",
+			stdout:  "/dev/sdb: ARRAY /dev/md/0 metadata=1.2 UUID=abc\n",
+			want:    "has mdraid metadata",
+		},
+		{
+			name:    "device mapper dependency",
+			command: "dmsetup deps -o devname",
+			stdout:  "vg-root: 1 dependencies : (sdb)\n",
+			want:    "is used by device-mapper",
+		},
+		{
+			name:    "multipath member",
+			command: "multipath -ll",
+			stdout:  "mpatha dm-0\n`- 0:0:0:0 sdb 8:16 active ready running\n",
+			want:    "is used by multipath",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &scriptedCommandRunner{handlers: map[string]func(context.Context) (CommandResult, error){
+				tt.command: func(context.Context) (CommandResult, error) {
+					return CommandResult{Stdout: tt.stdout}, nil
+				},
+			}}
+			inspector := newSafetyTestInspector(t, runner, "sdb")
+			reason := inspector.extraSafetyReason(context.Background(), DiskTarget{Name: "sdb", DevicePath: "/dev/sdb"})
+			if reason != tt.want {
+				t.Fatalf("reason = %q, want %q; calls=%v", reason, tt.want, runner.calls)
+			}
+		})
+	}
+}
+
+func TestExtraSafetyUsesPerCheckTimeout(t *testing.T) {
+	runner := &scriptedCommandRunner{handlers: map[string]func(context.Context) (CommandResult, error){
+		"blkid /dev/sdb": func(ctx context.Context) (CommandResult, error) {
+			if _, ok := ctx.Deadline(); !ok {
+				return CommandResult{}, nil
+			}
+			return CommandResult{}, context.DeadlineExceeded
+		},
+	}}
+	inspector := newSafetyTestInspector(t, runner, "sdb")
+
+	reason := inspector.extraSafetyReason(context.Background(), DiskTarget{Name: "sdb", DevicePath: "/dev/sdb"})
+	if reason != "safety check timed out: blkid" {
+		t.Fatalf("timeout reason = %q, want safety check timed out: blkid", reason)
 	}
 }

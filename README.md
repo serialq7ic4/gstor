@@ -82,6 +82,8 @@ gstor --debug locate on 0:1:2
 
 `gstor benchmark run` 只会对 eligible bare disk 执行 fio。运行前会强制检查 root 权限与 `fio`、`lsblk`、`blkid`、`findmnt`、`fuser`、`smartctl` 依赖；依赖缺失或裸盘安全检查失败时不会启动 fio。
 
+裸盘安全检测会排除存在挂载点、文件系统签名、holder/slave 关系、进程占用、系统/启动盘归属、LVM、mdraid、device-mapper、multipath 关系或检测超时的设备。
+
 支持参数：
 
 - `-p, --profile`：`default` 或 `short`，默认 `default`
@@ -90,7 +92,7 @@ gstor --debug locate on 0:1:2
 - `-f, --format`：输出格式，目前仅支持 `json`
 - `-r, --report-url`：额外上报中心 API，按完成硬盘逐块 POST
 
-输出边界：stdout 只输出最终 JSON，stderr 输出计划、进度、跳过原因和错误上下文。最终 JSON 与上报请求只包含完整完成的硬盘结果，不包含 skipped disks。
+输出边界：stdout 只输出最终 JSON，stderr 输出计划、预计耗时、进度、跳过原因和错误上下文。最终 JSON 与上报请求只包含完整完成的硬盘结果，不包含 skipped disks。使用 `--output` 时，每块盘完成后都会刷新本地 JSON 文件；中断时保留已完成盘，当前中断盘和未开始盘不记录。
 
 # 本地开发
 

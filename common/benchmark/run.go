@@ -118,7 +118,15 @@ func RunBenchmark(ctx context.Context, options RunOptions) (RunOutput, error) {
 	if len(disks) == 0 {
 		return RunOutput{}, fmt.Errorf("no eligible bare disks found")
 	}
-	writeProgress(options.Stderr, "benchmark plan: profile=%s_%s disks=%d\n", profile.Name, profile.Version, len(disks))
+	writeProgress(
+		options.Stderr,
+		"benchmark plan: profile=%s_%s disks=%d cases=%d estimated_duration=%s\n",
+		profile.Name,
+		profile.Version,
+		len(disks),
+		len(profile.Cases),
+		estimateDuration(profile, len(disks)),
+	)
 
 	fioRunner := options.FIORunner
 	if fioRunner == nil {
@@ -161,6 +169,11 @@ func RunBenchmark(ctx context.Context, options RunOptions) (RunOutput, error) {
 			}
 		}
 		output.Results = append(output.Results, result)
+		if options.OutputPath != "" {
+			if err := writeJSONFile(options.OutputPath, output); err != nil {
+				return output, err
+			}
+		}
 	}
 
 	if options.OutputPath != "" {
@@ -170,6 +183,14 @@ func RunBenchmark(ctx context.Context, options RunOptions) (RunOutput, error) {
 	}
 
 	return output, nil
+}
+
+func estimateDuration(profile Profile, diskCount int) time.Duration {
+	if diskCount <= 0 || len(profile.Cases) == 0 {
+		return 0
+	}
+	perCase := time.Duration(fioRuntimeSeconds+fioRampTimeSeconds) * time.Second
+	return time.Duration(diskCount*len(profile.Cases)) * perCase
 }
 
 func writeProgress(writer io.Writer, format string, args ...any) {

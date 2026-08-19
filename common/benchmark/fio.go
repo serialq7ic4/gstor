@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+const (
+	fioRuntimeSeconds  = 60
+	fioRampTimeSeconds = 10
+)
+
 type FIOCaseResult struct {
 	CaseID     string         `json:"case_id"`
 	CaseOrder  int            `json:"case_order"`
@@ -26,8 +31,8 @@ func RenderFIOJob(profile Profile, disk DiskTarget) (string, error) {
 	builder.WriteString("ioengine=libaio\n")
 	builder.WriteString("direct=1\n")
 	builder.WriteString("time_based=1\n")
-	builder.WriteString("runtime=60\n")
-	builder.WriteString("ramp_time=10\n")
+	_, _ = fmt.Fprintf(&builder, "runtime=%d\n", fioRuntimeSeconds)
+	_, _ = fmt.Fprintf(&builder, "ramp_time=%d\n", fioRampTimeSeconds)
 	builder.WriteString("randrepeat=0\n")
 	builder.WriteString("refill_buffers=1\n")
 	builder.WriteString("group_reporting=1\n")

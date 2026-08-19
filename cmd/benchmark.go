@@ -48,11 +48,16 @@ func newBenchmarkRunCommand() *cobra.Command {
 				ReportURL:   reportURL,
 				Stderr:      cmd.ErrOrStderr(),
 			})
-			if err != nil {
-				return err
-			}
 			encoder := json.NewEncoder(cmd.OutOrStdout())
 			encoder.SetEscapeHTML(false)
+			if err != nil {
+				if len(result.Results) > 0 {
+					if encodeErr := encoder.Encode(result); encodeErr != nil {
+						return fmt.Errorf("failed to encode partial benchmark output: %w", encodeErr)
+					}
+				}
+				return err
+			}
 			if err := encoder.Encode(result); err != nil {
 				return fmt.Errorf("failed to encode benchmark output: %w", err)
 			}
