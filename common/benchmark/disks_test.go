@@ -235,6 +235,62 @@ func TestDiscoverEligibleDisksFallsBackToPairsWhenJSONUnsupported(t *testing.T) 
 	}
 }
 
+func TestDiscoverEligibleDisksUsesPhysicalMediaBeforeBenchmarkPressure(t *testing.T) {
+	runner := &fakeCommandRunner{
+		results: []fakeCommandResult{{
+			result: CommandResult{Stdout: `{
+  "blockdevices": [
+    {
+      "name": "sdf",
+      "path": "/dev/sdf",
+      "type": "disk",
+      "tran": "",
+      "rota": true,
+      "size": 959656755200,
+      "serial": "61866da0a237f200271929350575fc78",
+      "vendor": "DELL",
+      "model": "PERC H730P Mini"
+    }
+  ]
+}`},
+		}},
+	}
+	inspector := newSafetyTestInspector(t, runner, "sdf")
+	inspector.PhysicalDiskCollector = func(context.Context) ([]PhysicalDiskInfo, error) {
+		return []PhysicalDiskInfo{{
+			Name:          "sdf",
+			MediaType:     "SSD",
+			InterfaceType: "SATA",
+			Vendor:        "INTEL",
+			Model:         "SSDSC2KB960G8",
+			Capacity:      "960 GB",
+			SerialNumber:  "PHYF936405HF960CGN",
+		}}, nil
+	}
+
+	targets, skipped, err := DiscoverEligibleDisks(context.Background(), inspector, []string{"sdf"})
+	if err != nil {
+		t.Fatalf("DiscoverEligibleDisks returned error: %v", err)
+	}
+	if len(skipped) != 0 {
+		t.Fatalf("skipped = %+v, want none", skipped)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("targets = %+v, want one target", targets)
+	}
+
+	target := targets[0]
+	if target.MediaType != "SSD" || target.InterfaceType != "SATA" {
+		t.Fatalf("target media/interface = %s/%s, want SSD/SATA: %+v", target.MediaType, target.InterfaceType, target)
+	}
+	if target.Vendor != "INTEL" || target.Model != "SSDSC2KB960G8" || target.SerialNumber != "PHYF936405HF960CGN" {
+		t.Fatalf("target physical identity was not enriched: %+v", target)
+	}
+	if pressure := PressureFor(target, "random_perf"); pressure.IODepth != 32 {
+		t.Fatalf("random pressure = %+v, want SSD pressure with iodepth=32", pressure)
+	}
+}
+
 type scriptedCommandRunner struct {
 	handlers map[string]func(context.Context) (CommandResult, error)
 	calls    []string

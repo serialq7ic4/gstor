@@ -14,6 +14,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/chenq7an/gstor/common/block"
 )
 
 type SkippedDisk struct {
@@ -31,6 +33,19 @@ type CommandResult struct {
 type CommandRunner interface {
 	Run(ctx context.Context, name string, args ...string) (CommandResult, error)
 }
+
+type PhysicalDiskInfo struct {
+	Name          string
+	SerialNumber  string
+	Vendor        string
+	Model         string
+	Firmware      string
+	Capacity      string
+	MediaType     string
+	InterfaceType string
+}
+
+type PhysicalDiskCollector func(ctx context.Context) ([]PhysicalDiskInfo, error)
 
 type SystemRunner struct{}
 
@@ -93,16 +108,18 @@ func (SystemRunner) Run(ctx context.Context, name string, args ...string) (Comma
 }
 
 type Inspector struct {
-	Runner             CommandRunner
-	SysBlockRoot       string
-	SafetyCheckTimeout time.Duration
+	Runner                CommandRunner
+	SysBlockRoot          string
+	SafetyCheckTimeout    time.Duration
+	PhysicalDiskCollector PhysicalDiskCollector
 }
 
 func NewSystemInspector() Inspector {
 	return Inspector{
-		Runner:             SystemRunner{},
-		SysBlockRoot:       "/sys/block",
-		SafetyCheckTimeout: 5 * time.Second,
+		Runner:                SystemRunner{},
+		SysBlockRoot:          "/sys/block",
+		SafetyCheckTimeout:    5 * time.Second,
+		PhysicalDiskCollector: collectSystemPhysicalDisks,
 	}
 }
 
@@ -147,7 +164,131 @@ func eligibleDisksWithExtraSafety(
 		safeTargets = append(safeTargets, target)
 	}
 
+	safeTargets, err = inspector.enrichDiskTargets(ctx, safeTargets)
+	if err != nil {
+		return nil, skipped, err
+	}
+
 	return safeTargets, skipped, nil
+}
+
+func (i Inspector) enrichDiskTargets(ctx context.Context, targets []DiskTarget) ([]DiskTarget, error) {
+	collector := i.PhysicalDiskCollector
+	if collector == nil {
+		return targets, nil
+	}
+
+	physicalDisks, err := collector(ctx)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return targets, nil
+	}
+	if len(physicalDisks) == 0 {
+		return targets, nil
+	}
+
+	byName := make(map[string]PhysicalDiskInfo, len(physicalDisks))
+	bySerial := make(map[string]PhysicalDiskInfo, len(physicalDisks))
+	for _, disk := range physicalDisks {
+		if name := normalizeDiskSelector(disk.Name); name != "" {
+			byName[name] = disk
+		}
+		if serial := strings.TrimSpace(disk.SerialNumber); serial != "" {
+			bySerial[serial] = disk
+		}
+	}
+
+	for idx := range targets {
+		physical, ok := byName[targets[idx].Name]
+		if !ok && targets[idx].SerialNumber != "" {
+			physical, ok = bySerial[targets[idx].SerialNumber]
+		}
+		if !ok {
+			continue
+		}
+		if normalizeMediaType(physical.MediaType) != "" {
+			targets[idx].MediaType = normalizeMediaType(physical.MediaType)
+		}
+		if normalized := normalizeInterfaceType(physical.InterfaceType, physical.Name); normalized != "" {
+			targets[idx].InterfaceType = normalized
+		} else if normalized := normalizeInterfaceType(physical.InterfaceType, targets[idx].Name); normalized != "" {
+			targets[idx].InterfaceType = normalized
+		}
+		if physical.Vendor != "" {
+			targets[idx].Vendor = strings.TrimSpace(physical.Vendor)
+		}
+		if physical.Model != "" {
+			targets[idx].Model = strings.TrimSpace(physical.Model)
+		}
+		if physical.SerialNumber != "" {
+			targets[idx].SerialNumber = strings.TrimSpace(physical.SerialNumber)
+		}
+		if physical.Capacity != "" {
+			targets[idx].Capacity = strings.TrimSpace(physical.Capacity)
+		}
+	}
+
+	return targets, nil
+}
+
+func normalizeMediaType(value string) string {
+	normalized := strings.ToUpper(strings.TrimSpace(value))
+	switch {
+	case normalized == "":
+		return ""
+	case normalized == "SSD" || strings.Contains(normalized, "SOLID"):
+		return "SSD"
+	case normalized == "HDD" || strings.Contains(normalized, "HARD"):
+		return "HDD"
+	case normalized == "NVME":
+		return "SSD"
+	default:
+		return normalized
+	}
+}
+
+func normalizeInterfaceType(value string, name string) string {
+	normalized := strings.ToUpper(strings.TrimSpace(value))
+	switch {
+	case normalized == "SATA" || strings.Contains(normalized, "SATA"):
+		return "SATA"
+	case normalized == "SAS" || strings.Contains(normalized, "SAS"):
+		return "SAS"
+	case normalized == "NVME" || strings.Contains(normalized, "NVME"):
+		return "NVME"
+	}
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(name)), "nvme") {
+		return "NVME"
+	}
+	return ""
+}
+
+func collectSystemPhysicalDisks(ctx context.Context) ([]PhysicalDiskInfo, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	collector, err := block.Devices()
+	if err != nil {
+		return nil, err
+	}
+
+	disks := collector.Collect()
+	physicalDisks := make([]PhysicalDiskInfo, 0, len(disks))
+	for _, disk := range disks {
+		physicalDisks = append(physicalDisks, PhysicalDiskInfo{
+			Name:          normalizeDiskSelector(disk.Name),
+			SerialNumber:  strings.TrimSpace(disk.SerialNumber),
+			Vendor:        strings.TrimSpace(disk.Vendor),
+			Model:         strings.TrimSpace(disk.Model),
+			Capacity:      strings.TrimSpace(disk.Capacity),
+			MediaType:     normalizeMediaType(disk.MediaType),
+			InterfaceType: normalizeInterfaceType(disk.PDType, disk.Name),
+		})
+	}
+	return physicalDisks, ctx.Err()
 }
 
 type lsblkDocument struct {
