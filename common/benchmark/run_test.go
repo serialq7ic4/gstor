@@ -180,6 +180,53 @@ func TestRunBenchmarkPrintsEstimatedDuration(t *testing.T) {
 	}
 }
 
+func TestRunBenchmarkSkipsNVMeWhenSmartctlIsTooOld(t *testing.T) {
+	profile, err := SelectProfile("short")
+	if err != nil {
+		t.Fatalf("SelectProfile(short): %v", err)
+	}
+	fio := &fakeFIORunner{cases: completeCaseResults(t, profile)}
+	stderr := &bytes.Buffer{}
+
+	output, err := RunBenchmark(context.Background(), RunOptions{
+		ProfileName: "short",
+		Probe: fakeProbe{
+			paths: map[string]string{
+				"fio": "/usr/bin/fio", "lsblk": "/usr/bin/lsblk", "blkid": "/usr/sbin/blkid",
+				"findmnt": "/usr/bin/findmnt", "fuser": "/usr/bin/fuser", "smartctl": "/usr/sbin/smartctl",
+			},
+			euid: 0,
+		},
+		Discoverer: func(context.Context, []string) ([]DiskTarget, []SkippedDisk, error) {
+			return []DiskTarget{
+				{Name: "sdb", DevicePath: "/dev/sdb", MediaType: "HDD", InterfaceType: "SATA"},
+				{Name: "nvme0n1", DevicePath: "/dev/nvme0n1", MediaType: "SSD", InterfaceType: "NVME"},
+			}, nil, nil
+		},
+		SmartctlVersionChecker: func(context.Context) (SmartctlVersionStatus, error) {
+			return SmartctlVersionStatus{Version: "7.0.1", Ready: false, Warning: "NVMe disks require smartmontools >= 7.0.2, detected 7.0.1"}, nil
+		},
+		FIORunner: fio,
+		ServerInfoProvider: func(context.Context) (ServerInfo, error) {
+			return ServerInfo{Hostname: "host-a"}, nil
+		},
+		LockPath: filepath.Join(t.TempDir(), "gstor.lock"),
+		Stderr:   stderr,
+	})
+	if err != nil {
+		t.Fatalf("RunBenchmark returned error: %v", err)
+	}
+	if len(output.Results) != 1 || output.Results[0].Disk.Name != "sdb" {
+		t.Fatalf("output = %+v, want only sdb", output)
+	}
+	if fio.calls != 1 {
+		t.Fatalf("fio calls = %d, want 1 for sdb only", fio.calls)
+	}
+	if !strings.Contains(stderr.String(), "skip nvme0n1") || !strings.Contains(stderr.String(), "smartmontools") {
+		t.Fatalf("stderr = %q, want NVMe smartmontools skip message", stderr.String())
+	}
+}
+
 func TestRunBenchmarkRetainsCompletedDiskOutputWhenLaterDiskFails(t *testing.T) {
 	profile, err := SelectProfile("short")
 	if err != nil {

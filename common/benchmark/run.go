@@ -61,18 +61,19 @@ type Reporter interface {
 type ServerInfoProvider func(ctx context.Context) (ServerInfo, error)
 
 type RunOptions struct {
-	ProfileName        string
-	Disks              []string
-	OutputPath         string
-	Format             string
-	ReportURL          string
-	LockPath           string
-	Probe              Probe
-	Discoverer         DiskDiscoverer
-	FIORunner          FIORunner
-	Reporter           Reporter
-	ServerInfoProvider ServerInfoProvider
-	Stderr             io.Writer
+	ProfileName            string
+	Disks                  []string
+	OutputPath             string
+	Format                 string
+	ReportURL              string
+	LockPath               string
+	Probe                  Probe
+	Discoverer             DiskDiscoverer
+	FIORunner              FIORunner
+	Reporter               Reporter
+	ServerInfoProvider     ServerInfoProvider
+	SmartctlVersionChecker func(ctx context.Context) (SmartctlVersionStatus, error)
+	Stderr                 io.Writer
 }
 
 func RunBenchmark(ctx context.Context, options RunOptions) (RunOutput, error) {
@@ -111,6 +112,30 @@ func RunBenchmark(ctx context.Context, options RunOptions) (RunOutput, error) {
 	disks, skipped, err := discoverer(ctx, options.Disks)
 	if err != nil {
 		return RunOutput{}, err
+	}
+	if containsNVMeTarget(disks) {
+		versionChecker := options.SmartctlVersionChecker
+		if versionChecker == nil {
+			versionChecker = func(ctx context.Context) (SmartctlVersionStatus, error) {
+				return CheckSmartctlVersion(ctx, SystemRunner{})
+			}
+		}
+		status, err := versionChecker(ctx)
+		if err != nil {
+			return RunOutput{}, err
+		}
+		nvmeCheck := NVMeSmartctlCheck{
+			HasNVMe: true,
+			Ready:   status.Ready,
+			Version: status.Version,
+			Warning: status.Warning,
+		}
+		filteredDisks, nvmeSkipped, err := filterTargetsForNVMeSmartctl(disks, nvmeCheck, options.Disks)
+		if err != nil {
+			return RunOutput{}, err
+		}
+		disks = filteredDisks
+		skipped = append(skipped, nvmeSkipped...)
 	}
 	for _, skippedDisk := range skipped {
 		writeProgress(options.Stderr, "skip %s: %s\n", skippedDisk.Name, skippedDisk.Reason)
@@ -183,6 +208,15 @@ func RunBenchmark(ctx context.Context, options RunOptions) (RunOutput, error) {
 	}
 
 	return output, nil
+}
+
+func containsNVMeTarget(targets []DiskTarget) bool {
+	for _, target := range targets {
+		if isNVMeTarget(target) {
+			return true
+		}
+	}
+	return false
 }
 
 func estimateDuration(profile Profile, diskCount int) time.Duration {

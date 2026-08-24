@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"github.com/chenq7an/gstor/common/benchmark"
 	"github.com/chenq7an/gstor/common/controller"
@@ -22,7 +24,20 @@ func showController(cmd *cobra.Command, args []string) {
 	fmt.Printf("存储控制器: %s\n命令行工具: %s\n工具已安装: %t\n", ctrl.Name, ctrl.Tool, ctrl.Avail)
 
 	report := benchmark.CheckRequirements(benchmark.SystemProbe{})
-	fmt.Printf("Benchmark 条件满足: %t\nRoot 权限: %t\n", report.Ready, report.Root)
+	nvmeCheck, nvmeCheckErr := benchmark.CheckNVMeSmartctlCompatibility(context.Background(), benchmark.SystemRunner{})
+	benchmarkReady := report.Ready
+	if nvmeCheckErr != nil {
+		benchmarkReady = false
+		fmt.Printf("Benchmark NVMe 检查: false (%v)\n", nvmeCheckErr)
+	} else if !nvmeCheck.HasNVMe {
+		fmt.Println("Benchmark NVMe 检查: 未发现 NVMe 硬盘")
+	} else if !nvmeCheck.Ready {
+		benchmarkReady = false
+		fmt.Printf("Benchmark NVMe 检查: false (发现 %s，%s)\n", strings.Join(nvmeCheck.Devices, ","), nvmeCheck.Warning)
+	} else {
+		fmt.Printf("Benchmark NVMe 检查: true (发现 %s，smartmontools %s)\n", strings.Join(nvmeCheck.Devices, ","), nvmeCheck.Version)
+	}
+	fmt.Printf("Benchmark 条件满足: %t\nRoot 权限: %t\n", benchmarkReady, report.Root)
 	for _, dep := range report.Dependencies {
 		fmt.Printf("Benchmark 依赖 %-8s: %t", dep.Name, dep.Available)
 		if dep.Path != "" {
