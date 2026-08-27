@@ -13,6 +13,11 @@ import (
 	"github.com/spf13/cast"
 )
 
+const (
+	devDiskByIDDir   = "/dev/disk/by-id"
+	devDiskByPathDir = "/dev/disk/by-path"
+)
+
 type megacliCollector struct{}
 
 func execMegacliCommand(cmd string) string {
@@ -125,7 +130,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 	disk.Vendor = NormalizeVendor(disk.Vendor)
 
 	if disk.State == "JBOD" {
-		disk.Name = strings.Trim(execMegacliCommand(fmt.Sprintf(`ls -l /dev/disk/by-id/ | grep -E "*%s*" | awk -F/ '{print $NF}'`, disk.SerialNumber)), "\n")
+		disk.Name = resolveMegacliDeviceNameBySerialDir(devDiskByIDDir, disk.SerialNumber)
 	}
 
 	// 根据 PD 的 LD 信息精准匹配盘符与slot对应关系
@@ -163,7 +168,7 @@ func megacli(id string, results chan<- Disk, wg *sync.WaitGroup) {
 
 			// 如果 targetId 和 sequenceNum 都找到了，执行查找
 			if targetId != "" && sequenceNum != "" {
-				disk.Name = resolveMegacliDeviceNameByPathDir("/dev/disk/by-path", busNumber, sequenceNum, targetId)
+				disk.Name = resolveMegacliDeviceNameByPathDir(devDiskByPathDir, busNumber, sequenceNum, targetId)
 			}
 		}
 	}
@@ -256,6 +261,51 @@ func resolveMegacliDeviceNameByPathDir(dir string, busNumber string, sequenceNum
 		if name := resolveDeviceNameByPathPattern(dir, pattern); name != "" {
 			return name
 		}
+	}
+	return ""
+}
+
+// resolveMegacliDeviceNameBySerialDir 通过序列号在 by-id 目录中查找整盘盘符。
+// by-id 会为每个分区各建一条 symlink，并且同一块盘通常同时有 ata-*/wwn-* 等多套命名，
+// 所以这里必须跳过 -part 条目并按解析后的设备名去重，否则会把分区一起带出来。
+// 命中多块不同物理盘时返回空字符串，宁可不给盘符也不给错的。
+func resolveMegacliDeviceNameBySerialDir(dir string, serial string) string {
+	serial = strings.TrimSpace(serial)
+	if serial == "" {
+		return ""
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+
+	seen := make(map[string]struct{})
+	matches := make([]string, 0, 1)
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.Contains(name, "-part") || !strings.Contains(name, serial) {
+			continue
+		}
+
+		resolvedPath, err := filepath.EvalSymlinks(filepath.Join(dir, name))
+		if err != nil {
+			continue
+		}
+
+		deviceName := filepath.Base(resolvedPath)
+		if deviceName == "" {
+			continue
+		}
+		if _, ok := seen[deviceName]; ok {
+			continue
+		}
+		seen[deviceName] = struct{}{}
+		matches = append(matches, deviceName)
+	}
+
+	if len(matches) == 1 {
+		return matches[0]
 	}
 	return ""
 }
